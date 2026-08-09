@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpotScan — L'étude d'implantation en 30 secondes</title>
+<meta name="description" content="Entrez une adresse : SpotScan génère votre zone de chalandise, l'étude de marché et le business plan à partir des données officielles (INSEE, SIRENE, IGN).">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{--navy:#0F2B46;--blue:#2E6EB5;--blue2:#4A8BD4;--light:#EAF1F8;--green:#1E7A46;--amber:#B8860B;--red:#B23A3A;
+        --ink:#1c2733;--muted:#67788a;--line:#dbe3ec;--bg:#f4f7fb;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.5}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+  header{background:var(--navy);color:#fff;position:sticky;top:0;z-index:1000}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px}
+  .logo .mark{width:27px;height:27px;border-radius:8px;background:linear-gradient(135deg,var(--blue2),var(--green));display:flex;align-items:center;justify-content:center;font-size:14px}
+  .beta{background:var(--amber);color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;letter-spacing:.4px}
+  .hero{background:linear-gradient(180deg,var(--navy),#1d3f63);color:#fff;padding:44px 0 34px}
+  .hero h1{font-size:34px;font-weight:800;max-width:720px;line-height:1.15}
+  .hero p{opacity:.9;margin-top:10px;max-width:620px;font-size:16px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 30px rgba(15,35,60,.10)}
+  .config{margin-top:-26px;position:relative;z-index:5;padding:22px}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+  .col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-6{grid-column:span 6}.col-12{grid-column:span 12}
+  .field label{font-size:12.5px;font-weight:700;color:#42566b;display:block;margin-bottom:6px}
+  select,input{font-family:inherit;font-size:14.5px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;width:100%;background:#fff}
+  select:focus,input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(46,110,181,.15)}
+  .seg{display:flex;gap:8px}
+  .seg button{flex:1;padding:10px;border:1px solid var(--line);background:#fff;border-radius:9px;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:600;color:#4a5a6b}
+  .seg button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .autocomplete{position:relative}
+  .sugg{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:0 0 10px 10px;z-index:100;max-height:230px;overflow:auto;box-shadow:0 10px 24px rgba(15,35,60,.12)}
+  .sugg div{padding:10px 12px;font-size:13.5px;cursor:pointer}
+  .sugg div:hover{background:var(--light)}
+  .go{margin-top:18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .btn{background:var(--blue);color:#fff;border:none;border-radius:11px;padding:14px 30px;font-weight:800;font-size:16px;cursor:pointer;font-family:inherit}
+  .btn:hover{background:#255c9c}
+  .btn:disabled{opacity:.5;cursor:wait}
+  .hint{font-size:12.5px;color:var(--muted)}
+  .status{font-size:13px;color:var(--blue);font-weight:600}
+  .warn-banner{background:#FDF3E0;border:1px solid #ecd9ac;color:#7a5b12;border-radius:10px;padding:10px 14px;font-size:13px;margin-top:14px;display:none}
+
+  /* results */
+  #result{display:none;padding:26px 0 60px}
+  .rhead{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+  .rhead h2{font-size:22px;color:var(--navy);font-weight:800}
+  .rhead .meta{font-size:13px;color:var(--muted)}
+  h3.sect{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--blue);font-weight:800;margin:26px 0 12px;display:flex;align-items:center;gap:10px}
+  h3.sect::after{content:"";flex:1;height:1px;background:var(--line)}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+  .tile{background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px}
+  .tile .k{font-size:11.5px;color:var(--muted);font-weight:700}
+  .tile .v{font-size:23px;font-weight:800;color:var(--navy);margin-top:3px}
+  .tile .u{font-size:11.5px;color:var(--muted)}
+  .tile.good .v{color:var(--green)} .tile.warn .v{color:var(--red)}
+  .cols2{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+  .cardbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}
+  .cardbox h4{font-size:14px;color:var(--navy);margin-bottom:10px}
+  #map{height:380px;border-radius:14px;border:1px solid var(--line)}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+  .bar-row .lab{width:150px;color:#4a5a6b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-track{flex:1;height:11px;background:var(--light);border-radius:6px;overflow:hidden}
+  .bar-fill{display:block;height:100%;background:var(--blue);border-radius:6px}
+  .bar-row .val{white-space:nowrap;font-weight:700;color:var(--navy);font-size:12.5px}
+  .comp-scroll{overflow-x:auto}
+  table.comp{width:100%;border-collapse:collapse;font-size:12.5px;min-width:780px}
+  table.comp th{text-align:left;font-size:10.5px;text-transform:uppercase;color:#7a8699;padding:8px;border-bottom:2px solid var(--line)}
+  table.comp th:nth-child(n+3){text-align:right}
+  table.comp td{padding:8px;border-bottom:1px solid var(--line)}
+  table.comp td:first-child{font-weight:700;color:var(--navy)}
+  table.comp td:nth-child(2){color:#4a5a6b;font-weight:400}
+  table.comp td:nth-child(n+3){text-align:right;font-weight:600;color:var(--navy)}
+  td .soc{display:block;font-size:11px;color:var(--muted);font-weight:400}
+  .pos{color:var(--green)!important}.neg{color:var(--red)!important}.na{color:#9aa7b4!important;font-weight:400!important}
+  .est{font-size:10.5px;color:var(--amber);font-weight:700}
+  table.mini{width:100%;border-collapse:collapse;font-size:13px}
+  table.mini td{padding:7px 6px;border-bottom:1px solid var(--line)}
+  table.mini td:last-child{text-align:right;font-weight:700;color:var(--navy)}
+  table.mini tr:last-child td{border-bottom:none}
+  .note{font-size:11.5px;color:var(--muted);margin-top:8px}
+  .swot{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .swot-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff}
+  .swot-card h5{font-size:12px;text-transform:uppercase;margin-bottom:8px}
+  .swot-card li{font-size:12.5px;color:#41525f;margin-left:16px;margin-bottom:5px}
+  .sw-f{border-top:3px solid var(--green)}.sw-f h5{color:var(--green)}
+  .sw-w{border-top:3px solid var(--red)}.sw-w h5{color:var(--red)}
+  .sw-o{border-top:3px solid var(--blue)}.sw-o h5{color:var(--blue)}
+  .sw-t{border-top:3px solid var(--amber)}.sw-t h5{color:var(--amber)}
+  .betabox{background:var(--light);border:1px dashed var(--blue);border-radius:12px;padding:14px;text-align:center;font-size:13.5px;margin-top:22px}
+  .betabox b{color:var(--navy)}
+  .print-btn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  footer{background:var(--navy);color:#cdd8e6;padding:24px 0;font-size:12.5px}
+  footer .pill{display:inline-block;background:rgba(255,255,255,.1);padding:3px 10px;border-radius:20px;margin:2px 3px;font-size:11.5px}
+  @media(max-width:860px){.col-3,.col-4,.col-6{grid-column:span 12}.tiles{grid-template-columns:1fr 1fr}.cols2{grid-template-columns:1fr}.swot{grid-template-columns:1fr}}
+  @media print{header,.hero,.config,.betabox,.print-btn,footer{display:none!important}#result{display:block!important}body{background:#fff}}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <div class="logo"><span class="mark">◎</span> SpotScan <span class="beta">BÊTA GRATUITE</span></div>
+  <div class="hint" style="color:#bcd7f5">L'étude d'implantation en 30 secondes</div>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <h1>Scannez votre futur emplacement.</h1>
+  <p>Entrez l'adresse de votre futur business : SpotScan génère la zone de chalandise, les concurrents réels (avec leurs chiffres) et votre étude de marché — à partir des données officielles INSEE, SIRENE et IGN.</p>
+</div></div>
+
+<div class="wrap">
+  <div class="panel config">
+    <div class="grid">
+      <div class="field col-4">
+        <label>Votre futur business</label>
+        <select id="business"></select>
+      </div>
+      <div class="field col-4 autocomplete">
+        <label>Adresse envisagée</label>
+        <input id="address" type="text" placeholder="ex : 12 rue de la République, Lyon" autocomplete="off">
+        <div class="sugg" id="sugg" style="display:none"></div>
+      </div>
+      <div class="field col-4">
+        <label>Surface envisagée (m²)</label>
+        <input id="surface" type="number" value="900" min="20" step="10">
+      </div>
+      <div class="field col-6">
+        <label>Zone de chalandise</label>
+        <div class="seg" id="seg-time">
+          <button data-t="5">5 min</button><button data-t="10" class="on">10 min</button><button data-t="15">15 min</button>
+        </div>
+      </div>
+      <div class="field col-6">
+        <label>Mode d'accès principal</label>
+        <div class="seg" id="seg-mode">
+          <button data-m="car" class="on">🚗 Voiture</button><button data-m="pedestrian">🚶 À pied</button>
+        </div>
+      </div>
+    </div>
+    <div class="go">
+      <button class="btn" id="run" disabled>Scanner cet emplacement →</button>
+      <span class="status" id="status">Choisissez une adresse dans la liste.</span>
+    </div>
+    <div class="warn-banner" id="warn"></div>
+  </div>
+
+  <div id="result">
+    <div class="rhead">
+      <div><h2 id="r-title">Étude d'implantation</h2><div class="meta" id="r-meta"></div></div>
+      <button class="print-btn" onclick="window.print()">🖨️ Imprimer / PDF</button>
+    </div>
+
+    <h3 class="sect">Zone de chalandise</h3>
+    <div class="cols2">
+      <div id="map"></div>
+      <div>
+        <div class="tiles" style="grid-template-columns:1fr 1fr">
+          <div class="tile"><div class="k">Population accessible</div><div class="v" id="t-pop">—</div><div class="u">habitants (estimation)</div></div>
+          <div class="tile"><div class="k">Ménages</div><div class="v" id="t-men">—</div><div class="u">foyers (estimation)</div></div>
+          <div class="tile"><div class="k">Accès</div><div class="v" id="t-acc">—</div><div class="u" id="t-accu"></div></div>
+          <div class="tile"><div class="k">Concurrents actifs</div><div class="v" id="t-conc">—</div><div class="u">dans la zone</div></div>
+        </div>
+        <div class="cardbox" style="margin-top:13px">
+          <h4>Composition de la zone — communes</h4>
+          <div id="communes"></div>
+          <p class="note">Population communale INSEE (geo.api.gouv.fr), part dans la zone estimée par échantillonnage géographique.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="sect">Concurrence réelle — <span id="c-ape" style="text-transform:none"></span></h3>
+    <div class="tiles" style="margin-bottom:13px">
+      <div class="tile"><div class="k">Établissements actifs</div><div class="v" id="c-n">—</div><div class="u">zone isochrone</div></div>
+      <div class="tile"><div class="k">Densité</div><div class="v" id="c-dens">—</div><div class="u">hab. / concurrent</div></div>
+      <div class="tile"><div class="k">CA moyen (publié)</div><div class="v" id="c-ca">—</div><div class="u">dernier exercice</div></div>
+      <div class="tile"><div class="k">Plus proche</div><div class="v" id="c-prox">—</div><div class="u">de votre adresse</div></div>
+    </div>
+    <div class="cardbox"><div class="comp-scroll">
+      <table class="comp">
+        <thead><tr><th>Enseigne / société</th><th>Adresse</th><th>Créée</th><th>Distance</th><th>CA (dernier ex.)</th><th>Résultat net</th></tr></thead>
+        <tbody id="c-rows"></tbody>
+      </table></div>
+      <p class="note" id="c-note"></p>
+    </div>
+
+    <h3 class="sect">Marché & potentiel</h3>
+    <div class="cols2">
+      <div class="cardbox"><h4>Estimation du potentiel</h4>
+        <table class="mini" id="m-table"></table>
+        <p class="note">Hypothèses sectorielles moyennes France — à affiner selon votre concept. Chaque valeur est recalculée depuis votre zone réelle.</p>
+      </div>
+      <div>
+        <div class="tile good" style="margin-bottom:13px"><div class="k">Chiffre d'affaires potentiel</div><div class="v" id="m-ca">—</div><div class="u">par an, régime de croisière (estimation)</div></div>
+        <div class="tile"><div class="k">Marché total de la zone</div><div class="v" id="m-marche">—</div><div class="u">dépense annuelle du secteur</div></div>
+      </div>
+    </div>
+
+    <h3 class="sect">Business plan express — 18 mois</h3>
+    <div class="tiles">
+      <div class="tile"><div class="k">Investissement type</div><div class="v" id="b-inv">—</div><div class="u">financé par crédit 7 ans</div></div>
+      <div class="tile"><div class="k">Mensualité crédit</div><div class="v" id="b-cred">—</div><div class="u">à 3,9 % / an</div></div>
+      <div class="tile" id="b-ebe-tile"><div class="k">EBE mensuel (croisière)</div><div class="v" id="b-ebe">—</div><div class="u" id="b-marge"></div></div>
+      <div class="tile good"><div class="k">EBE positif estimé dès</div><div class="v" id="b-be">—</div><div class="u">mois après ouverture</div></div>
+    </div>
+
+    <h3 class="sect">Synthèse SWOT</h3>
+    <div class="swot" id="swot"></div>
+
+    <div class="betabox">🎁 <b>Bêta gratuite</b> — l'étude complète est offerte pendant la phase de test. Bientôt : rapport PDF enrichi, flux piétons, comparaison multi-adresses et export Excel du prévisionnel (19 € / 39 € / 79 €).</div>
+  </div>
+</div>
+
+<footer><div class="wrap">
+  <b style="color:#fff">SpotScan</b> — bêta · données officielles :
+  <span class="pill">BAN — adresses</span><span class="pill">IGN — isochrones</span>
+  <span class="pill">INSEE / geo.api.gouv.fr — population</span><span class="pill">SIRENE — entreprises & finances</span>
+  <div class="note" style="color:#9fb0c4;margin-top:8px">Estimations indicatives fondées sur des moyennes sectorielles et données publiques — ne constitue pas un conseil en investissement. © SpotScan 2026.</div>
+</div></footer>
+
+<script>
+/* ================= SECTEURS (bibliothèque de ratios) ================= */
+const SECTORS = {
+  gym:{refM2:900,label:'Salle de sport',icon:'🏋️',naf:['93.13Z','93.11Z'],apeLabel:'APE 9313Z + 9311Z',depHab:42,margeExploit:0.24,invest:350000,caM2:450,search:'salle de sport'},
+  resto:{refM2:120,label:'Restaurant',icon:'🍽️',naf:['56.10A'],apeLabel:'APE 5610A',depHab:600,margeExploit:0.14,invest:250000,caM2:3500,search:'restaurant'},
+  fastfood:{refM2:80,label:'Restauration rapide',icon:'🍔',naf:['56.10C'],apeLabel:'APE 5610C',depHab:350,margeExploit:0.12,invest:300000,caM2:6000,search:'restauration rapide'},
+  boul:{refM2:80,label:'Boulangerie',icon:'🥖',naf:['10.71C','10.71D'],apeLabel:'APE 1071C/D',depHab:140,margeExploit:0.15,invest:200000,caM2:4000,search:'boulangerie'},
+  boucherie:{refM2:60,label:'Boucherie',icon:'🥩',naf:['47.22Z'],apeLabel:'APE 4722Z',depHab:130,margeExploit:0.10,invest:150000,caM2:5000,search:'boucherie'},
+  caviste:{refM2:60,label:'Caviste',icon:'🍷',naf:['47.25Z'],apeLabel:'APE 4725Z',depHab:40,margeExploit:0.10,invest:90000,caM2:4500,search:'caviste'},
+  cafetabac:{refM2:80,label:'Café / tabac',icon:'☕',naf:['56.30Z','47.26Z'],apeLabel:'APE 5630Z + 4726Z',depHab:200,margeExploit:0.10,invest:200000,caM2:5500,search:'café tabac'},
+  coif:{refM2:60,label:'Salon de coiffure',icon:'✂️',naf:['96.02A'],apeLabel:'APE 9602A',depHab:95,margeExploit:0.16,invest:80000,caM2:2200,search:'coiffeur'},
+  pharma:{refM2:150,label:'Pharmacie',icon:'💊',naf:['47.73Z'],apeLabel:'APE 4773Z',depHab:560,margeExploit:0.09,invest:600000,caM2:9000,search:'pharmacie'},
+  optic:{refM2:80,label:'Opticien',icon:'👓',naf:['47.78A'],apeLabel:'APE 4778A',depHab:110,margeExploit:0.12,invest:150000,caM2:5500,search:'opticien'},
+  parfumerie:{refM2:100,label:'Parfumerie',icon:'💄',naf:['47.75Z'],apeLabel:'APE 4775Z',depHab:90,margeExploit:0.10,invest:250000,caM2:6500,search:'parfumerie'},
+  pap:{refM2:120,label:'Magasin de vêtements',icon:'👗',naf:['47.71Z'],apeLabel:'APE 4771Z',depHab:480,margeExploit:0.08,invest:150000,caM2:3000,search:'magasin de vêtements'},
+  sportwear:{refM2:400,label:'Magasin de sport',icon:'🏃',naf:['47.64Z'],apeLabel:'APE 4764Z',depHab:130,margeExploit:0.09,invest:250000,caM2:3200,search:'magasin de sport'},
+  velo:{refM2:150,label:'Magasin de vélo',icon:'🚲',naf:['47.64Z'],apeLabel:'APE 4764Z',depHab:35,margeExploit:0.10,invest:180000,caM2:3800,search:'magasin de vélo'},
+  immo:{refM2:50,label:'Agence immobilière',icon:'🏠',naf:['68.31Z'],apeLabel:'APE 6831Z',depHab:60,margeExploit:0.15,invest:60000,caM2:4500,search:'agence immobilière'},
+  padel:{refM2:2000,label:'Padel',icon:'🎾',naf:['93.11Z'],apeLabel:'APE 9311Z',depHab:10,margeExploit:0.20,invest:600000,caM2:250,search:'padel'},
+  footindoor:{refM2:2500,label:'Foot indoor',icon:'⚽',naf:['93.11Z'],apeLabel:'APE 9311Z',depHab:9,margeExploit:0.15,invest:500000,caM2:200,search:'foot indoor'},
+  bowling:{refM2:1500,label:'Bowling',icon:'🎳',naf:['93.29Z'],apeLabel:'APE 9329Z',depHab:12,margeExploit:0.18,invest:900000,caM2:600,search:'bowling'},
+  karting:{refM2:3000,label:'Karting',icon:'🏎️',naf:['93.29Z'],apeLabel:'APE 9329Z',depHab:8,margeExploit:0.16,invest:700000,caM2:300,search:'karting'},
+  golfindoor:{refM2:400,label:'Golf indoor',icon:'⛳',naf:['93.11Z'],apeLabel:'APE 9311Z',depHab:6,margeExploit:0.20,invest:400000,caM2:900,search:'golf indoor'},
+};
+const sel=document.getElementById('business');
+for(const [k,s] of Object.entries(SECTORS)){const o=document.createElement('option');o.value=k;o.textContent=`${s.icon} ${s.label}`;sel.appendChild(o);}
+
+/* ================= ÉTAT ================= */
+const state={business:'gym',time:10,mode:'car',addr:null,surface:900};
+sel.onchange=()=>{state.business=sel.value;const r=SECTORS[sel.value].refM2||200;state.surface=r;document.getElementById('surface').value=r;};
+document.getElementById('surface').oninput=e=>state.surface=Number(e.target.value)||200;
+document.querySelectorAll('#seg-time button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#seg-time button').forEach(x=>x.classList.remove('on'));b.classList.add('on');state.time=Number(b.dataset.t);});
+document.querySelectorAll('#seg-mode button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#seg-mode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');state.mode=b.dataset.m;});
+
+/* ================= HELPERS ================= */
+const fmt=n=>Math.round(n).toLocaleString('fr-FR');
+const keur=n=>(n/1000).toLocaleString('fr-FR',{maximumFractionDigits:0})+' k€';
+const meur=n=>(n/1e6).toLocaleString('fr-FR',{maximumFractionDigits:1})+' M€';
+const money=n=>n>=1e6?meur(n):keur(n);
+const pct=n=>(n*100).toLocaleString('fr-FR',{maximumFractionDigits:1})+' %';
+const setStatus=t=>document.getElementById('status').textContent=t;
+const warn=t=>{const w=document.getElementById('warn');w.style.display='block';w.innerHTML=t;};
+function haversine(a,b){const R=6371,dLa=(b[0]-a[0])*Math.PI/180,dLo=(b[1]-a[1])*Math.PI/180;
+  const x=Math.sin(dLa/2)**2+Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));}
+function pip(pt,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+  if(((yi>pt[1])!==(yj>pt[1]))&&(pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi)+xi))inside=!inside;}return inside;}
+function polyAreaKm2(poly){let a=0;const R=6371;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i][0]*Math.PI/180,yi=poly[i][1]*Math.PI/180,xj=poly[j][0]*Math.PI/180,yj=poly[j][1]*Math.PI/180;
+    a+=(xj-xi)*(2+Math.sin(yi)+Math.sin(yj));}
+  return Math.abs(a*R*R/2);}
+async function jget(url,timeout=12000){
+  const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);
+  const r=await fetch(url,{signal:c.signal});clearTimeout(t);
+  if(!r.ok)throw new Error(r.status);return r.json();}
+
+/* ================= AUTOCOMPLÉTION BAN ================= */
+const addrInput=document.getElementById('address'),sugg=document.getElementById('sugg'),runBtn=document.getElementById('run');
+let deb=null;
+addrInput.oninput=()=>{state.addr=null;runBtn.disabled=true;clearTimeout(deb);
+  const q=addrInput.value.trim();if(q.length<4){sugg.style.display='none';return;}
+  deb=setTimeout(async()=>{try{
+    const d=await jget('https://api-adresse.data.gouv.fr/search/?limit=5&q='+encodeURIComponent(q));
+    sugg.innerHTML='';(d.features||[]).forEach(f=>{const div=document.createElement('div');
+      div.textContent=f.properties.label;
+      div.onclick=()=>{state.addr={label:f.properties.label,lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],cp:f.properties.postcode,city:f.properties.city};
+        addrInput.value=f.properties.label;sugg.style.display='none';runBtn.disabled=false;setStatus('Prêt à scanner ✔');};
+      sugg.appendChild(div);});
+    sugg.style.display=d.features&&d.features.length?'block':'none';
+  }catch(e){sugg.style.display='none';}},280);};
+document.addEventListener('click',e=>{if(!e.target.closest('.autocomplete'))sugg.style.display='none';});
+
+/* ================= MOTEUR ================= */
+let map=null,layers=[];
+runBtn.onclick=async()=>{
+  if(!state.addr)return;
+  runBtn.disabled=true;document.getElementById('warn').style.display='none';
+  const s=SECTORS[state.business];
+  try{
+    /* 1 — Isochrone IGN */
+    setStatus('1/4 · Calcul de la zone de chalandise (IGN)…');
+    let poly=null,isoOk=true;
+    try{
+      const iso=await jget(`https://data.geopf.fr/navigation/isochrone?point=${state.addr.lon},${state.addr.lat}&resource=bdtopo-valhalla&costValue=${state.time*60}&costType=time&profile=${state.mode}&direction=departure&geometryFormat=geojson`);
+      poly=iso.geometry.coordinates[0].map(c=>[c[1],c[0]]); /* [lat,lon] */
+    }catch(e){isoOk=false;
+      const rKm=state.mode==='car'?state.time*0.55:state.time*0.07; /* fallback cercle */
+      poly=[];for(let i=0;i<=48;i++){const a=i/48*2*Math.PI;
+        poly.push([state.addr.lat+rKm/111*Math.sin(a),state.addr.lon+rKm/(111*Math.cos(state.addr.lat*Math.PI/180))*Math.cos(a)]);}
+      warn('⚠️ API isochrone IGN injoignable depuis ce réseau — zone approximée par un rayon équivalent. En ligne, la vraie isochrone s\'affiche.');}
+    const areaKm2=polyAreaKm2(poly);
+
+    /* 2 — Communes & population */
+    setStatus('2/4 · Population de la zone (INSEE)…');
+    let communes=[],popZone=0;
+    try{
+      const lats=poly.map(p=>p[0]),lons=poly.map(p=>p[1]);
+      const la0=Math.min(...lats),la1=Math.max(...lats),lo0=Math.min(...lons),lo1=Math.max(...lons);
+      const pts=[];const N=5;
+      for(let i=0;i<N;i++)for(let j=0;j<N;j++){
+        const pt=[la0+(i+.5)/N*(la1-la0),lo0+(j+.5)/N*(lo1-lo0)];
+        if(pip(pt,poly))pts.push(pt);}
+      if(!pts.length)pts.push([state.addr.lat,state.addr.lon]);
+      const seen={};
+      const results=await Promise.allSettled(pts.map(pt=>jget(`https://geo.api.gouv.fr/communes?lat=${pt[0].toFixed(5)}&lon=${pt[1].toFixed(5)}&fields=nom,code,population,surface`)));
+      results.forEach(r=>{if(r.status==='fulfilled'&&r.value[0]){const c=r.value[0];
+        if(!seen[c.code])seen[c.code]={...c,hits:0};seen[c.code].hits++;}});
+      const tot=Object.values(seen).reduce((a,c)=>a+c.hits,0)||1;
+      communes=Object.values(seen).map(c=>{
+        const zonePartKm2=areaKm2*c.hits/tot;
+        const communeKm2=(c.surface||1000)/100;
+        const share=Math.min(1,zonePartKm2/communeKm2);
+        return {nom:c.nom,pop:c.population||0,popIn:Math.round((c.population||0)*share)};
+      }).sort((a,b)=>b.popIn-a.popIn);
+      popZone=communes.reduce((a,c)=>a+c.popIn,0);
+    }catch(e){}
+    if(!popZone){popZone=Math.round(areaKm2*2500);
+      warn('⚠️ API communes injoignable — population estimée par densité urbaine moyenne. En ligne, les chiffres INSEE réels s\'affichent.');}
+
+    /* 3 — Concurrents réels (API Recherche d'entreprises — SIRENE + finances) */
+    setStatus('3/4 · Concurrents réels (SIRENE)…');
+    const radiusKm=Math.max(1,Math.sqrt(areaKm2/Math.PI));
+    let comps=[],concOk=true;
+    try{
+      const naf=s.naf.join(',');
+      const d=await jget(`https://recherche-entreprises.api.gouv.fr/near_point?lat=${state.addr.lat}&long=${state.addr.lon}&radius=${Math.min(radiusKm,50).toFixed(1)}&activite_principale=${naf}&per_page=25`);
+      (d.results||[]).forEach(r=>{
+        const et=(r.matching_etablissements||[]).filter(e=>e.etat_administratif==='A');
+        et.forEach(e=>{
+          if(!e.latitude||!e.longitude)return;
+          const dist=haversine([state.addr.lat,state.addr.lon],[Number(e.latitude),Number(e.longitude)]);
+          if(dist>radiusKm*1.15)return;
+          const fin=r.finances?Object.entries(r.finances).sort((a,b)=>b[0]-a[0])[0]:null;
+          comps.push({
+            ens:(e.liste_enseignes&&e.liste_enseignes[0])||r.nom_complet||r.nom_raison_sociale,
+            soc:r.nom_raison_sociale&&(e.liste_enseignes&&e.liste_enseignes[0])?r.nom_raison_sociale:null,
+            adr:e.adresse||'',created:r.date_creation?r.date_creation.slice(0,4):'n.c.',
+            dist,lat:Number(e.latitude),lon:Number(e.longitude),
+            ca:fin?fin[1].ca:null,rn:fin?fin[1].resultat_net:null,anF:fin?fin[0]:null});
+        });
+      });
+      comps.sort((a,b)=>a.dist-b.dist);
+      const dedup={};comps=comps.filter(c=>{const k=c.ens+'|'+c.adr;if(dedup[k])return false;dedup[k]=1;return true;}).slice(0,15);
+    }catch(e){concOk=false;
+      warn('⚠️ API SIRENE injoignable depuis ce réseau — concurrents non chargés (ils s\'affichent une fois le site en ligne).');}
+
+    /* 4 — Calculs & rendu */
+    setStatus('4/4 · Calculs marché & business plan…');
+    render(s,poly,popZone,communes,comps,concOk,isoOk,areaKm2);
+    setStatus('Étude générée ✔');
+  }catch(e){setStatus('Erreur : '+e.message);}
+  runBtn.disabled=false;
+};
+
+function render(s,poly,pop,communes,comps,concOk,isoOk,areaKm2){
+  document.getElementById('result').style.display='block';
+  document.getElementById('r-title').textContent=`${s.icon} ${s.label} — étude d'implantation`;
+  document.getElementById('r-meta').textContent=`${state.addr.label} · zone ${state.time} min ${state.mode==='car'?'en voiture':'à pied'} · générée le ${new Date().toLocaleDateString('fr-FR')}`;
+
+  /* carte (Leaflet — dégradé gracieux si CDN indisponible) */
+  if(typeof L!=='undefined'){
+    if(!map){map=L.map('map');L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);}
+    layers.forEach(l=>map.removeLayer(l));layers=[];
+    const pl=L.polygon(poly,{color:'#2E6EB5',weight:2.5,dashArray:'7 5',fillColor:'#2E6EB5',fillOpacity:.13}).addTo(map);layers.push(pl);
+    const home=L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#0F2B46',fillColor:'#0F2B46',fillOpacity:1}).addTo(map).bindPopup('<b>Votre emplacement</b><br>'+state.addr.label);layers.push(home);
+    comps.forEach(c=>{const m=L.circleMarker([c.lat,c.lon],{radius:6,color:'#B23A3A',fillColor:'#B23A3A',fillOpacity:.85})
+      .addTo(map).bindPopup(`<b>${c.ens}</b><br>${c.adr}<br>${c.dist.toFixed(1)} km`);layers.push(m);});
+    map.fitBounds(pl.getBounds(),{padding:[16,16]});
+  }else{
+    document.getElementById('map').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#67788a;font-size:13.5px;text-align:center;padding:20px">🗺️ Carte indisponible hors ligne —<br>elle s\'affiche automatiquement une fois le site en ligne.</div>';
+  }
+
+  /* tuiles zone */
+  document.getElementById('t-pop').textContent=fmt(pop);
+  document.getElementById('t-men').textContent=fmt(pop/2.2);
+  document.getElementById('t-acc').textContent=state.time+' min';
+  document.getElementById('t-accu').textContent=state.mode==='car'?'en voiture':'à pied';
+  document.getElementById('t-conc').textContent=concOk?comps.length:'—';
+  document.getElementById('communes').innerHTML=communes.slice(0,6).map(c=>{
+    const p=pop?c.popIn/pop:0;
+    return `<div class="bar-row"><span class="lab">${c.nom}</span><span class="bar-track"><span class="bar-fill" style="width:${Math.max(3,p*100).toFixed(0)}%"></span></span><span class="val">${fmt(c.popIn)} hab · ${(p*100).toFixed(0)} %</span></div>`;
+  }).join('')||'<p class="note">Détail communal indisponible.</p>';
+
+  /* concurrence */
+  document.getElementById('c-ape').textContent=s.apeLabel;
+  const pubCa=comps.filter(c=>c.ca);
+  document.getElementById('c-n').textContent=concOk?comps.length:'—';
+  document.getElementById('c-dens').textContent=concOk&&comps.length?fmt(pop/comps.length):'—';
+  document.getElementById('c-ca').textContent=pubCa.length?money(pubCa.reduce((a,c)=>a+c.ca,0)/pubCa.length):'n.p.';
+  document.getElementById('c-prox').textContent=comps.length?comps[0].dist.toFixed(1)+' km':'—';
+  document.getElementById('c-rows').innerHTML=comps.map(c=>`<tr>
+    <td>📍 ${c.ens}${c.soc?`<span class="soc">Société : ${c.soc}</span>`:''}</td>
+    <td>${c.adr}</td><td>${c.created}</td><td>${c.dist.toFixed(1)} km</td>
+    <td class="${c.ca?'':'na'}">${c.ca?money(c.ca):'—'}</td>
+    <td class="${c.rn==null?'na':c.rn>=0?'pos':'neg'}">${c.rn==null?'—':(c.rn>=0?'+':'−')+fmt(Math.abs(c.rn))+' €'}${c.anF?` <span class="na">(${c.anF})</span>`:''}</td>
+  </tr>`).join('')||`<tr><td colspan="6" class="na">${concOk?'Aucun concurrent de ce secteur détecté dans la zone — signal potentiellement très favorable (ou activité récente non référencée).':'Concurrents non chargés (API injoignable ici).'}</td></tr>`;
+  document.getElementById('c-note').innerHTML=`Source : <b>API Recherche d'entreprises (SIRENE)</b> — établissements <b>actifs</b>, codes ${s.apeLabel}, dans un rayon équivalent à la zone (${areaKm2.toFixed(0)} km²). CA / résultat : comptes publiés au niveau de la société ; « — » = non publié (fréquent pour les petites structures).`;
+
+  /* marché */
+  const marche=pop*s.depHab;
+  const n=concOk?comps.length:Math.max(1,Math.round(pop/12000));
+  const part=Math.min(0.35,1/(n+1));
+  const caPot=Math.min(marche*part,s.caM2*state.surface);
+  document.getElementById('m-table').innerHTML=`
+    <tr><td>Dépense sectorielle moyenne</td><td>${fmt(s.depHab)} € / hab / an</td></tr>
+    <tr><td>Marché total de la zone</td><td>${money(marche)} / an</td></tr>
+    <tr><td>Concurrents actifs</td><td>${n}</td></tr>
+    <tr><td>Part de marché captable</td><td>${pct(part)}</td></tr>
+    <tr><td>Plafond capacité (${fmt(state.surface)} m²)</td><td>${money(s.caM2*state.surface)} / an</td></tr>
+    <tr><td><b>CA potentiel retenu</b></td><td><b>${money(caPot)} / an</b></td></tr>`;
+  document.getElementById('m-ca').textContent=money(caPot);
+  document.getElementById('m-marche').textContent=money(marche);
+
+  /* BP express — investissement mis à l'échelle de la surface saisie */
+  const inv=Math.round(s.invest*Math.min(2,Math.max(0.35,state.surface/(s.refM2||300)))/5000)*5000;
+  const credit=inv*(0.039/12)/(1-Math.pow(1+0.039/12,-84));
+  const ebe=caPot/12*s.margeExploit-credit;
+  let be='—';
+  for(let m=1;m<=18;m++){const ramp=Math.min(1,0.12+(1-0.12)*(m-1)/11);
+    if(caPot/12*ramp*s.margeExploit-credit>0){be='M'+m;break;}}
+  document.getElementById('b-inv').textContent=money(inv);
+  document.getElementById('b-cred').textContent=fmt(credit)+' €';
+  document.getElementById('b-ebe').textContent=(ebe>=0?'+':'−')+fmt(Math.abs(ebe))+' €';
+  document.getElementById('b-ebe-tile').className='tile '+(ebe>=0?'good':'warn');
+  document.getElementById('b-marge').textContent='marge '+pct(ebe>0?ebe/(caPot/12):0);
+  document.getElementById('b-be').textContent=be;
+
+  /* SWOT */
+  const sw=document.getElementById('swot');
+  sw.innerHTML=`
+    <div class="swot-card sw-f"><h5>💪 Forces</h5><ul>
+      <li>Zone de ${fmt(pop)} habitants accessible en ${state.time} min</li>
+      <li>${communes.length||'Plusieurs'} commune(s) couvertes — bassin réel de clientèle</li></ul></div>
+    <div class="swot-card sw-w"><h5>⚠️ Faiblesses</h5><ul>
+      <li>Investissement à financer (${money(inv)} — crédit ${fmt(credit)} €/mois)</li>
+      <li>Notoriété à construire face aux acteurs installés</li></ul></div>
+    <div class="swot-card sw-o"><h5>🚀 Opportunités</h5><ul>
+      <li>Marché local de ${money(marche)}/an sur le secteur ${s.label.toLowerCase()}</li>
+      <li>Part captable estimée à ${pct(part)}</li></ul></div>
+    <div class="swot-card sw-t"><h5>🛡️ Menaces</h5><ul>
+      <li>${n} concurrent(s) actif(s) dans la zone${comps.length?` — le plus proche à ${comps[0].dist.toFixed(1)} km`:''}</li>
+      <li>Sensibilité du CA à l'emplacement exact et à la visibilité</li></ul></div>`;
+  document.getElementById('result').scrollIntoView({behavior:'smooth'});
+}
+</script>
+</body>
+</html>
