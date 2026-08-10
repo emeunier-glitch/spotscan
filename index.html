@@ -673,7 +673,7 @@ async function fetchData(){
           const yrs=Object.keys(p).map(Number).sort((a,b)=>a-b);
           if(yrs.length>=2){
             const yN=yrs[yrs.length-1];
-            let yO=yrs.find(y=>y<=yN-5);if(yO==null)yO=yrs[0];
+            let yO=[...yrs].reverse().find(y=>y<=yN-5);if(yO==null)yO=yrs[0];
             if(yO!==yN){A.popNew+=p[yN]*sh;A.popOld+=p[yO]*sh;
               A.anNew=Math.max(A.anNew,yN);A.anOld=A.anOld?Math.min(A.anOld,yO):yO;}
           }

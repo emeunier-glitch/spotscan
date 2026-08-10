@@ -4,6 +4,7 @@
 
 const EMPLOIS_RES = 'b4f1bb42-ab1b-4493-8639-0b2ab7a9fb3b'; // Indice de concentration de l'emploi (numerateur = emplois)
 const CHOMAGE_RES = 'b803ffbc-92cc-4f2f-b919-dcf4a44b21b9'; // Taux de chômage au sens du recensement
+const POP_RES     = 'c3fd94a5-ff94-4c33-ae5b-b9811bd72a1f'; // Population par classe d'âge (denominateur = population totale)
 const TAB = 'https://tabular-api.data.gouv.fr/api/resources';
 
 // Les arrondissements municipaux n'existent pas dans ces jeux : on remonte à la commune
@@ -55,29 +56,22 @@ async function chomage(codes) {
   return out;
 }
 
-// --- Populations légales (INSEE Melodi) : série par millésime ---
+// --- Population municipale par millésime (2011 / 2016 / 2022) ---
+// Source : recensement INSEE via data.gouv.fr. On filtre sur une seule classe d'âge
+// car le dénominateur (population totale de la commune) est répété pour chacune.
 async function population(codes) {
   const out = {};
-  const list = codes.slice(0, 8); // marge sur la limite anonyme de Melodi
-  await Promise.all(list.map(async code => {
-    try {
-      const d = await jget(`https://api.insee.fr/melodi/data/DS_POPULATIONS_REFERENCE?GEO=COM-${code}&POPREF_MEASURE=PMUN&maxResult=200`);
-      const series = {};
-      for (const o of (d.observations || [])) {
-        const dim = o.dimensions || {};
-        const per = Number(String(dim.TIME_PERIOD || dim.timePeriod || '').slice(0, 4));
-        if (!per) continue;
-        const m = o.measures || {};
-        let val = null;
-        for (const k of Object.keys(m)) {
-          const cand = Number(m[k] && m[k].value);
-          if (isFinite(cand) && cand > 0) { val = cand; break; }
-        }
-        if (val != null) series[per] = val;
-      }
-      if (Object.keys(series).length) out[code] = series;
-    } catch (e) { /* commune ignorée, dégradation propre */ }
-  }));
+  const list = codes.slice(0, 16); // 3 millésimes par commune, page_size max = 50
+  const url = `${TAB}/${POP_RES}/data/?code_com__in=${list.join(',')}`
+    + `&classe_age__exact=${encodeURIComponent('Moins de 15 ans')}&page_size=50`;
+  const d = await jget(url);
+  for (const row of (d.data || [])) {
+    const code = normCode(row.code_com);
+    const an = Number(row.annee);
+    const v = Number(row.denominateur);
+    if (!an || !isFinite(v) || v <= 0) continue;
+    (out[code] = out[code] || {})[an] = Math.round(v);
+  }
   return out;
 }
 
@@ -100,7 +94,7 @@ export default async function handler(req, res) {
     sources: {
       emplois: 'INSEE — recensement (emplois au lieu de travail), via data.gouv.fr',
       chomage: 'INSEE — taux de chômage au sens du recensement (15 ans ou plus)',
-      population: 'INSEE — populations légales (API Melodi)'
+      population: 'INSEE — population municipale par millésime de recensement, via data.gouv.fr'
     }
   });
 }
