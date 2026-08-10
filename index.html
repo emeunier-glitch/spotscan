@@ -127,7 +127,7 @@
   .cols2b{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
   .cardbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}
   .cardbox h4{font-size:14.5px;color:var(--navy);margin-bottom:12px}
-  #lmap{height:340px;border-radius:14px;border:1px solid var(--line);background:var(--light)}
+  #lmap,#bmap{height:340px;border-radius:14px;border:1px solid var(--line);background:var(--light)}
   .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px}
   .bar-row .lab{width:130px;color:#4a5a6b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bar-track{flex:1;height:12px;background:var(--light);border-radius:6px;overflow:hidden}
@@ -636,7 +636,7 @@ async function fetchData(){
   try{
     const lats=D.poly.map(p=>p[0]),lons=D.poly.map(p=>p[1]);
     const la0=Math.min(...lats),la1=Math.max(...lats),lo0=Math.min(...lons),lo1=Math.max(...lons);
-    const pts=[];const N=5;
+    const pts=[];const N=D.areaKm2>60?8:(D.areaKm2>15?6:5);
     for(let i=0;i<N;i++)for(let j=0;j<N;j++){const pt=[la0+(i+.5)/N*(la1-la0),lo0+(j+.5)/N*(lo1-lo0)];if(pip(pt,D.poly))pts.push(pt);}
     if(!pts.length)pts.push([state.addr.lat,state.addr.lon]);
     const seen={};
@@ -708,6 +708,24 @@ async function fetchData(){
   }catch(e){D.concOk=false;
     D.warnings.push('Recherche de concurrents indisponible — réessayez dans un instant.');}}
 
+  /* --- Tissu économique : tous les établissements de la zone (carte) --- */
+  setStatus('Cartographie des entreprises de la zone…');
+  D.biz=null;
+  try{
+    const radius=Math.min(25,Math.max(1,Math.sqrt(D.areaKm2/Math.PI)));
+    const r=await fetch('/api/businesses',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:state.addr.lat,lon:state.addr.lon,radiusKm:radius})});
+    if(r.ok){
+      const d=await r.json();
+      const inside=(d.pts||[]).filter(p=>pip([p.la,p.lo],D.poly));
+      if(inside.length){
+        const byCat={};inside.forEach(p=>{byCat[p.c]=(byCat[p.c]||0)+1;});
+        D.biz={pts:inside,byCat,total:inside.length,tronque:!!d.tronque,
+          locos:inside.filter(p=>p.g&&p.n).sort((a,b)=>a.n.localeCompare(b.n)).slice(0,12)};
+      }
+    }
+  }catch(e){/* carte optionnelle : on n'interrompt pas le rapport */}
+
   state.data=D;state.dataKey=key;
   return D;
 }
@@ -770,8 +788,55 @@ function socioSection(D){
         <div class="v">${ratio==null?'—':ratio.toFixed(2)}</div>
         <div class="u">${ratio==null?'donnée indisponible':(ratio>=1?'pôle d\'emploi (attire des actifs)':'zone résidentielle')}</div></div>
     </div>
-    <p class="note">Sources : INSEE — emplois au lieu de travail et taux de chômage (recensement${S.emploisAn?' '+S.emploisAn:''}), populations légales pour l'évolution. Valeurs proratisées sur la part de chaque commune réellement couverte par la zone.${S.emploisPartiel?' Certaines communes de la zone n\'ont pas de donnée publiée.':''}</p>
+    <p class="note">Calculé sur l'<b>ensemble de la zone de chalandise</b> (${D.communes.length} commune${D.communes.length>1?'s':''} couverte${D.communes.length>1?'s':''}), et non sur la seule commune d'implantation. Sources : INSEE — emplois au lieu de travail et taux de chômage (recensement${S.emploisAn?' '+S.emploisAn:''}), population municipale par millésime pour l'évolution. Valeurs proratisées sur la part de chaque commune réellement couverte par la zone.${S.emploisPartiel?' Certaines communes de la zone n\'ont pas de donnée publiée.':''}</p>
   </div>`;
+}
+
+/* ====== TISSU ÉCONOMIQUE : CARTE DE TOUTES LES ENTREPRISES ====== */
+let bmap=null;
+function bizSection(D){
+  const B=D.biz;
+  if(!B)return '';
+  const dens=B.total/Math.max(1,D.areaKm2);
+  const cats=Object.entries(B.byCat).sort((a,b)=>b[1]-a[1]);
+  const top=cats[0]?`${cats[0][0]} (${cats[0][1]})`:'—';
+  const nLoco=B.pts.filter(p=>p.g).length;
+  return `<div class="rsection"><h3>Tissu économique de la zone</h3>
+    <div class="cols2b">
+      <div><div id="bmap"></div>
+        <p class="note">Chaque point bleu = un établissement implanté dans la zone (commerce, restauration, service, artisan, loisir). En orange, les <b>locomotives commerciales</b> qui génèrent du flux. Le <b style="color:#B23A3A">point rouge</b> est votre implantation souhaitée.${B.tronque?' Affichage limité aux 2 500 premiers établissements.':''}</p></div>
+      <div>
+        <div class="tiles" style="grid-template-columns:1fr 1fr">
+          <div class="tile"><div class="k">Établissements dans la zone</div><div class="v">${fmt(B.total)}</div><div class="u">tous secteurs confondus</div></div>
+          <div class="tile"><div class="k">Densité commerciale</div><div class="v">${dens.toFixed(1)}</div><div class="u">établissements / km²</div></div>
+          <div class="tile"><div class="k">Locomotives</div><div class="v">${nLoco}</div><div class="u">grandes surfaces & pôles</div></div>
+          <div class="tile"><div class="k">Catégorie dominante</div><div class="v" style="font-size:17px">${top}</div></div>
+        </div>
+        <div class="cardbox" style="margin-top:13px"><h4>Répartition par activité</h4>
+          ${cats.map(([c,n])=>bar(c,n/B.total)).join('')}
+          ${B.locos.length?`<p class="note"><b>Locomotives repérées :</b> ${B.locos.map(l=>l.n).join(' · ')}</p>`:''}
+          <p class="note">Source : OpenStreetMap — établissements géolocalisés à l'intérieur de votre isochrone.</p>
+        </div>
+      </div>
+    </div></div>`;
+}
+function drawBizMap(D){
+  if(!D.biz||typeof L==='undefined')return;
+  const el=document.getElementById('bmap');if(!el)return;
+  if(bmap){try{bmap.remove();}catch(e){}bmap=null;}
+  bmap=L.map('bmap',{preferCanvas:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(bmap);
+  const pl=L.polygon(D.poly,{color:'#1F3A5F',weight:2,dashArray:'6 5',fill:false}).addTo(bmap);
+  D.biz.pts.forEach(p=>{
+    const loco=!!p.g;
+    const mk=L.circleMarker([p.la,p.lo],{radius:loco?6:3,
+      color:loco?'#B8860B':'#2E6EB5',weight:loco?1.5:0,
+      fillColor:loco?'#E3A81B':'#2E6EB5',fillOpacity:loco?.95:.6}).addTo(bmap);
+    if(p.n)mk.bindPopup(`<b>${p.n}</b>${p.t?'<br>'+p.t:''}`);
+  });
+  L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#fff',weight:2,
+    fillColor:'#B23A3A',fillOpacity:1}).addTo(bmap).bindPopup('<b>Votre emplacement</b>');
+  bmap.fitBounds(pl.getBounds(),{padding:[16,16]});
 }
 
 const bar=(lab,v)=>`<div class="bar-row"><span class="lab">${lab}</span>
@@ -822,6 +887,7 @@ function renderZone(D){
       </div>
     </div></div>`;
   html+=socioSection(D);
+  html+=bizSection(D);
   html+=`<div class="rsection"><h3>Flux dans la zone <span class="estchip">INDICE ESTIMÉ</span></h3>
     <div class="cols2b">
       <div class="cardbox"><h4>Profil de passage — journée type</h4>${hbars([0.30,0.65,0.45,0.35,0.45,0.90,0.80,0.40,0.35,0.42,0.55,0.92,1.00,0.72,0.45])}
@@ -850,6 +916,7 @@ function renderZone(D){
       if(z.poly===D.poly)pl=p;});
     L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#1F3A5F',fillColor:'#1F3A5F',fillOpacity:1}).addTo(map).bindPopup('<b>Votre point de départ</b>');
     map.fitBounds(pl.getBounds(),{padding:[16,16]});
+    drawBizMap(D);
   }else{
     const el=document.getElementById('lmap');
     if(el)el.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#67788a;font-size:13.5px;text-align:center;padding:20px">🗺️ Carte indisponible hors ligne.</div>';
@@ -980,6 +1047,8 @@ function render(level,D){
       <p class="note">Méthode : recherche <b>terrain</b> des établissements réellement implantés (OpenStreetMap), puis croisement avec la base <b>SIRENE</b> sur le code APE de l'établissement pour ne garder que les entreprises <b>actives</b> et récupérer leurs chiffres officiels. « Terrain » = présent sur place mais sans comptes rattachés ; « SIRENE » = enregistré au bon code APE sans fiche terrain.${D.compStats?` (${D.compStats.terrain} fiches terrain · ${D.compStats.sirene} établissements SIRENE)`:''} CA / résultat net : comptes publiés au niveau société ; « — » = non publié, fréquent pour les petites structures.</p>
     </div></div>`;
 
+  etude+=bizSection(D);
+
   etude+=`<div class="rsection"><h3>Marché & potentiel</h3>
     <div class="cols2b">
       <div class="cardbox"><h4>Estimation du potentiel</h4>
@@ -1058,6 +1127,7 @@ function render(level,D){
     L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#1F3A5F',fillColor:'#1F3A5F',fillOpacity:1}).addTo(map).bindPopup('<b>Votre emplacement</b>');
     if(level>=2)comps.forEach(c=>L.circleMarker([c.lat,c.lon],{radius:6,color:'#B23A3A',fillColor:'#B23A3A',fillOpacity:.85}).addTo(map).bindPopup(`<b>${c.ens}</b><br>${c.adr}<br>${c.dist.toFixed(1)} km`));
     map.fitBounds(pl.getBounds(),{padding:[16,16]});
+    drawBizMap(D);
   }else{
     const el=document.getElementById('lmap');
     if(el)el.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#67788a;font-size:13.5px;text-align:center;padding:20px">🗺️ Carte indisponible hors ligne — elle s\'affiche une fois le site en ligne.</div>';
