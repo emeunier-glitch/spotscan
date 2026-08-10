@@ -152,6 +152,16 @@
   .comp-scroll{overflow-x:auto}
   .apechip{display:inline-block;background:var(--navy);color:#fff;font-weight:700;font-size:12px;
        padding:4px 10px;border-radius:7px;letter-spacing:.4px}
+  .srcchip{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}
+  .srcchip.ok{background:#e4f2e9;color:var(--green)} .srcchip.osm{background:#fdf3e0;color:var(--amber)}
+  .srcchip.sir{background:var(--light);color:var(--blue)}
+  .delc{border:1px solid var(--line);background:#fff;color:#9aa7b4;border-radius:7px;width:26px;height:26px;
+       cursor:pointer;font-size:12px;font-family:inherit;line-height:1;transition:.15s}
+  .delc:hover{border-color:var(--red);color:var(--red);background:#fdf0f0}
+  .excl-bar{background:var(--light);border:1px solid #cfe0f2;border-radius:10px;padding:10px 14px;
+       font-size:12.5px;color:#3a4b5c;margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .excl-bar button{border:none;background:var(--blue);color:#fff;border-radius:8px;padding:6px 12px;
+       font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
 
   .struct-row{margin-bottom:12px}
   .struct-top{display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:#3a4b5c;margin-bottom:4px}
@@ -211,7 +221,7 @@
     .cols2,.cols2b{grid-template-columns:1fr}.hero h1{font-size:30px}
     .col-3,.col-4,.col-6{grid-column:span 12}.swot{grid-template-columns:1fr}
   }
-  @media print{header,.hero,.config,#pricing,#how,.betabox,.print-btn,footer,.lock-card{display:none!important}
+  @media print{header,.hero,.config,#pricing,#how,.betabox,.print-btn,footer,.lock-card,.delc{display:none!important}
     #result,#config-view{display:block!important}.locked-content *{filter:none!important}}
 </style>
 </head>
@@ -421,103 +431,103 @@
 <script>
 /* ================= BIBLIOTHÈQUE SECTORIELLE ================= */
 const SECTORS = {
-  gym:{label:'Salle de sport',icon:'🏋️',naf:['93.13Z','93.11Z'],apeLabel:'APE 9313Z + 9311Z',refM2:900,caM2:450,
+  gym:{label:'Salle de sport',icon:'🏋️',naf:['93.13Z','93.11Z'],osm:['leisure=fitness_centre'],apeLabel:'APE 9313Z + 9311Z',refM2:900,caM2:450,
     depHab:42,margeExploit:0.24,invest:350000,hasGym:true,penetration:0.10,
     market:{title:'Le marché du fitness en France',taille:'≈ 2,5 Md€',etabl:'≈ 5 900 salles',croissance:'+3 %/an',extra:['Adhérents','≈ 7 M (10 %)'],
       intro:'Marché dynamique porté par le low-cost et les studios spécialisés ; 60 % des salles sous enseigne.',
       structure:[['Low-cost',45,'Basic-Fit, Fitness Park, Neoness'],['Milieu de gamme',30,'Keep Cool, L\'Orange Bleue, L\'Appart'],['Premium / boutique',15,'CrossFit, biking, yoga'],['Haut de gamme',10,'Clubs premium']]},
     ref:{name:'Basic-Fit',note:'Leader européen du fitness low-cost.',ca:'1,42 Md€ (2025)',croissance:'+16,9 %',marge:'≈ 1,0 % (net)',sal:'≈ 6 500',extra:'≈ 4,7 M adhérents · ~1 600 clubs'}},
-  resto:{label:'Restaurant',icon:'🍽️',naf:['56.10A'],apeLabel:'APE 5610A',refM2:120,caM2:3500,depHab:600,margeExploit:0.14,invest:250000,
+  resto:{label:'Restaurant',icon:'🍽️',naf:['56.10A'],osm:['amenity=restaurant'],apeLabel:'APE 5610A',refM2:120,caM2:3500,depHab:600,margeExploit:0.14,invest:250000,
     market:{title:'Le marché de la restauration en France',taille:'≈ 128 Md€',etabl:'≈ 180 000 entreprises',croissance:'+4 %/an (prix)',extra:['Ticket moyen','≈ 23 €'],
       intro:'Croissance tirée par les prix ; la restauration rapide capte ~60 % des repas.',
       structure:[['Service à table',41,'Indépendants, brasseries'],['Rapide / comptoir',59,'Chaînes']]},
     ref:{name:'Buffalo Grill',note:'Leader de la restauration à table (données Pappers).',ca:'364 M€',croissance:'+',marge:'13,3 % (RN 48,3 M€)',sal:'2 000–4 999',extra:'~360 restaurants'}},
-  fastfood:{label:'Restauration rapide',icon:'🍔',naf:['56.10C'],apeLabel:'APE 5610C',refM2:80,caM2:6000,depHab:350,margeExploit:0.12,invest:300000,
+  fastfood:{label:'Restauration rapide',icon:'🍔',naf:['56.10C'],osm:['amenity=fast_food'],apeLabel:'APE 5610C',refM2:80,caM2:6000,depHab:350,margeExploit:0.12,invest:300000,
     market:{title:'La restauration rapide en France',taille:'≈ 45 Md€',etabl:'≈ 40 000',croissance:'+5 %/an',extra:['Part des repas','~60 %'],
       intro:'Segment le plus dynamique, tiré par les chaînes et la livraison.',
       structure:[['Chaînes burgers',40,'McDo, Burger King, KFC'],['Sandwich / tacos',30,'Subway, O\'Tacos'],['Indépendants',30,'—']]},
     ref:{name:'McDonald\'s France',note:'Leader de la restauration rapide.',ca:'≈ 6,5 Md€',croissance:'+',marge:'n.c.',sal:'≈ 75 000',extra:'≈ 1 560 restaurants'}},
-  cafetabac:{label:'Café / tabac',icon:'☕',naf:['56.30Z','47.26Z'],apeLabel:'APE 5630Z + 4726Z',refM2:80,caM2:5500,depHab:200,margeExploit:0.10,invest:200000,
+  cafetabac:{label:'Café / tabac',icon:'☕',naf:['56.30Z','47.26Z'],osm:['amenity=cafe','shop=tobacco'],apeLabel:'APE 5630Z + 4726Z',refM2:80,caM2:5500,depHab:200,margeExploit:0.10,invest:200000,
     market:{title:'Les cafés-tabac en France',taille:'réseau ~23 000 buralistes',etabl:'≈ 23 000',croissance:'stable',extra:['Diversification','FDJ, PMU, colis'],
       intro:'Réseau de proximité en mutation : diversification pour compenser la baisse du tabac.',
       structure:[['Café-tabac-presse',60,'—'],['Bar-tabac-PMU',30,'—'],['Tabac seul',10,'—']]},
     ref:{name:'Relay Tabac',note:'Plus gros acteur tabac de France par CA (données Pappers).',ca:'152 M€',croissance:'+',marge:'7,1 % (RN 10,8 M€)',sal:'20–49',extra:'Gares & aéroports (Lagardère)'}},
-  boul:{label:'Boulangerie',icon:'🥖',naf:['10.71C','10.71D'],apeLabel:'APE 1071C/D',refM2:80,caM2:4000,depHab:140,margeExploit:0.15,invest:200000,
+  boul:{label:'Boulangerie',icon:'🥖',naf:['10.71C','10.71D'],osm:['shop=bakery','shop=pastry'],apeLabel:'APE 1071C/D',refM2:80,caM2:4000,depHab:140,margeExploit:0.15,invest:200000,
     market:{title:'La boulangerie en France',taille:'≈ 13–15 Md€',etabl:'≈ 35 000',croissance:'+4 %/an',extra:['Densité','1 / ~1 900 hab'],
       intro:'Marché de proximité très atomisé : 97 % d\'indépendants, mais les réseaux surperforment.',
       structure:[['Artisanales',80,'—'],['Réseaux',12,'Marie Blachère, Ange, Paul'],['Terminaux / GMS',8,'—']]},
     ref:{name:'Marie Blachère',note:'Leader de la boulangerie de réseau.',ca:'≈ 1,1 Md€',croissance:'2 chiffres',marge:'n.c.',sal:'≈ 11 000',extra:'≈ 900 boulangeries'}},
-  boucherie:{label:'Boucherie',icon:'🥩',naf:['47.22Z'],apeLabel:'APE 4722Z',refM2:60,caM2:5000,depHab:130,margeExploit:0.10,invest:150000,
+  boucherie:{label:'Boucherie',icon:'🥩',naf:['47.22Z'],osm:['shop=butcher'],apeLabel:'APE 4722Z',refM2:60,caM2:5000,depHab:130,margeExploit:0.10,invest:150000,
     market:{title:'La boucherie en France',taille:'≈ 8 Md€',etabl:'≈ 18 000',croissance:'stable',extra:['Tendance','premium & local'],
       intro:'Marché artisanal de proximité, valorisé par le local et le haut de gamme.',
       structure:[['Artisanales',85,'—'],['Réseaux',10,'Boucheries André'],['Rayon GMS',5,'—']]},
     ref:{name:'Boucheries André',note:'Plus grosse chaîne de boucheries de proximité (données Pappers).',ca:'46,9 M€',croissance:'+',marge:'3,2 % (RN 1,5 M€)',sal:'100–199',extra:'Chaîne de proximité'}},
-  caviste:{label:'Caviste',icon:'🍷',naf:['47.25Z'],apeLabel:'APE 4725Z',refM2:60,caM2:4500,depHab:40,margeExploit:0.10,invest:90000,
+  caviste:{label:'Caviste',icon:'🍷',naf:['47.25Z'],osm:['shop=wine','shop=alcohol'],apeLabel:'APE 4725Z',refM2:60,caM2:4500,depHab:40,margeExploit:0.10,invest:90000,
     market:{title:'Les cavistes en France',taille:'≈ 4 Md€',etabl:'≈ 6 000',croissance:'+3 %/an',extra:['Sous enseigne','~40 %'],
       intro:'Croissance portée par la premiumisation et les concepts cave + bar.',
       structure:[['Indépendants',60,'—'],['Franchises',30,'Nicolas, Cavavin, V and B'],['Cave + bar',10,'V and B']]},
     ref:{name:'Éts Nicolas',note:'Réseau historique de cavistes (données Pappers).',ca:'241 M€',croissance:'stable',marge:'3,8 % (RN 9,3 M€)',sal:'500–999',extra:'~500 magasins'}},
-  coif:{label:'Salon de coiffure',icon:'✂️',naf:['96.02A'],apeLabel:'APE 9602A',refM2:60,caM2:2200,depHab:95,margeExploit:0.16,invest:80000,
+  coif:{label:'Salon de coiffure',icon:'✂️',naf:['96.02A'],osm:['shop=hairdresser'],apeLabel:'APE 9602A',refM2:60,caM2:2200,depHab:95,margeExploit:0.16,invest:80000,
     market:{title:'La coiffure en France',taille:'≈ 7,1 Md€',etabl:'≈ 100 000',croissance:'+2 %/an',extra:['À domicile','~27 %'],
       intro:'Secteur dominé par les indépendants ; les grands groupes captent ~1/3 du marché.',
       structure:[['Indépendants',62,'—'],['Franchises',20,'Provalliance, VOG, Pascal Coste'],['À domicile',18,'—']]},
     ref:{name:'Provalliance',note:'Leader mondial de la coiffure (données Pappers).',ca:'n.c. (tête de réseau)',croissance:'+',marge:'RN 23,4 M€ (2024)',sal:'réseau ~3 500 salons',extra:'Franck Provost, Dessange…'}},
-  pharma:{label:'Pharmacie',icon:'💊',naf:['47.73Z'],apeLabel:'APE 4773Z',refM2:150,caM2:9000,depHab:560,margeExploit:0.09,invest:600000,
+  pharma:{label:'Pharmacie',icon:'💊',naf:['47.73Z'],osm:['amenity=pharmacy'],apeLabel:'APE 4773Z',refM2:150,caM2:9000,depHab:560,margeExploit:0.09,invest:600000,
     market:{title:'La pharmacie en France',taille:'≈ 63 Md€',etabl:'≈ 20 000 officines',croissance:'+2 %/an',extra:['Densité','1 / ~3 000 hab'],
       intro:'Marché réglementé de proximité ; montée des groupements et grandes officines.',
       structure:[['Indépendantes',55,'—'],['Groupements',35,'Giphar, Pharmabest'],['Grandes officines',10,'Lafayette, Aprium']]},
     ref:{name:'Groupe Giphar',note:'Groupement : référence = officine moyenne.',ca:'n.c.',croissance:'+',marge:'n.c.',sal:'n.c.',extra:'~2 900 pharmacies adhérentes'}},
-  optic:{label:'Opticien',icon:'👓',naf:['47.78A'],apeLabel:'APE 4778A',refM2:80,caM2:5500,depHab:110,margeExploit:0.12,invest:150000,
+  optic:{label:'Opticien',icon:'👓',naf:['47.78A'],osm:['shop=optician'],apeLabel:'APE 4778A',refM2:80,caM2:5500,depHab:110,margeExploit:0.12,invest:150000,
     market:{title:'L\'optique en France',taille:'≈ 7,5 Md€',etabl:'≈ 12 500',croissance:'+2 %/an',extra:['Sous enseigne','~75 %'],
       intro:'Marché dense dominé par les réseaux ; pression du 100 % Santé.',
       structure:[['Réseaux',75,'Krys, Optic 2000, Afflelou'],['Indépendants',20,'—'],['Low-cost / web',5,'—']]},
     ref:{name:'Krys Group',note:'Leader français de l\'optique.',ca:'≈ 1,4 Md€ (réseau)',croissance:'+',marge:'n.c.',sal:'n.c.',extra:'~1 500 magasins'}},
-  parfumerie:{label:'Parfumerie',icon:'💄',naf:['47.75Z'],apeLabel:'APE 4775Z',refM2:100,caM2:6500,depHab:90,margeExploit:0.10,invest:250000,
+  parfumerie:{label:'Parfumerie',icon:'💄',naf:['47.75Z'],osm:['shop=perfumery','shop=cosmetics'],apeLabel:'APE 4775Z',refM2:100,caM2:6500,depHab:90,margeExploit:0.10,invest:250000,
     market:{title:'La parfumerie en France',taille:'≈ 5 Md€',etabl:'≈ 3 500',croissance:'+3 %/an',extra:['Sous enseigne','majoritaire'],
       intro:'Marché dominé par les chaînes ; premiumisation et e-commerce beauté.',
       structure:[['Chaînes',80,'Sephora, Marionnaud, Nocibé'],['Indépendants',20,'—']]},
     ref:{name:'Sephora France',note:'Leader de la parfumerie sélective (données Pappers).',ca:'2,68 Md€',croissance:'+',marge:'12,8 % (RN 341 M€)',sal:'5 000–9 999',extra:'~330 magasins'}},
-  pap:{label:'Magasin de vêtements',icon:'👗',naf:['47.71Z'],apeLabel:'APE 4771Z',refM2:120,caM2:3000,depHab:480,margeExploit:0.08,invest:150000,
+  pap:{label:'Magasin de vêtements',icon:'👗',naf:['47.71Z'],osm:['shop=clothes'],apeLabel:'APE 4771Z',refM2:120,caM2:3000,depHab:480,margeExploit:0.08,invest:150000,
     market:{title:'L\'habillement en France',taille:'≈ 28 Md€',etabl:'≈ 35 000',croissance:'-1 %/an',extra:['E-commerce','~25 %'],
       intro:'Marché mature sous pression du e-commerce et de la seconde main.',
       structure:[['Chaînes',60,'Zara, H&M, Kiabi'],['Indépendants',25,'—'],['Luxe / premium',15,'—']]},
     ref:{name:'Kiabi',note:'Leader français de la mode à petit prix.',ca:'≈ 2 Md€',croissance:'+',marge:'n.c.',sal:'~10 000',extra:'~570 magasins (France)'}},
-  sportwear:{label:'Magasin de sport',icon:'🏃',naf:['47.64Z'],apeLabel:'APE 4764Z',refM2:400,caM2:3200,depHab:130,margeExploit:0.09,invest:250000,
+  sportwear:{label:'Magasin de sport',icon:'🏃',naf:['47.64Z'],osm:['shop=sports'],apeLabel:'APE 4764Z',refM2:400,caM2:3200,depHab:130,margeExploit:0.09,invest:250000,
     market:{title:'Les articles de sport en France',taille:'≈ 12 Md€',etabl:'≈ 5 000',croissance:'+3 %/an',extra:['Leader','Decathlon ~50 % PDM'],
       intro:'Marché dominé par Decathlon ; running et outdoor porteurs.',
       structure:[['Grandes surfaces',70,'Decathlon, Intersport'],['Chaînes spécialisées',20,'Courir, Foot Locker'],['Indépendants',10,'—']]},
     ref:{name:'Decathlon',note:'Leader mondial des articles de sport.',ca:'≈ 15,6 Md€ (monde)',croissance:'+',marge:'n.c.',sal:'~100 000',extra:'~1 700 magasins (monde)'}},
-  velo:{label:'Magasin de vélo',icon:'🚲',naf:['47.64Z'],apeLabel:'APE 4764Z',refM2:150,caM2:3800,depHab:35,margeExploit:0.10,invest:180000,
+  velo:{label:'Magasin de vélo',icon:'🚲',naf:['47.64Z'],osm:['shop=bicycle'],apeLabel:'APE 4764Z',refM2:150,caM2:3800,depHab:35,margeExploit:0.10,invest:180000,
     market:{title:'Le vélo en France',taille:'≈ 3,5 Md€',etabl:'≈ 2 500',croissance:'+5 %/an',extra:['Moteur','vélo électrique'],
       intro:'Marché tiré par le VAE et les mobilités douces.',
       structure:[['Spécialistes',55,'Culture Vélo, Cyclable'],['Grandes surfaces',30,'Decathlon'],['En ligne',15,'Alltricks']]},
     ref:{name:'Culture Vélo — moyenne franchisés',note:'Franchise : référence = moyenne des magasins (données Pappers).',ca:'≈ 769 k€ / magasin',croissance:'+ (VAE)',marge:'≈ −1 %',sal:'3–9 / magasin',extra:'CA médian 785 k€ · RN médian +1 k€'}},
-  immo:{label:'Agence immobilière',icon:'🏠',naf:['68.31Z'],apeLabel:'APE 6831Z',refM2:50,caM2:4500,depHab:60,margeExploit:0.15,invest:60000,
+  immo:{label:'Agence immobilière',icon:'🏠',naf:['68.31Z'],osm:['office=estate_agent'],apeLabel:'APE 6831Z',refM2:50,caM2:4500,depHab:60,margeExploit:0.15,invest:60000,
     market:{title:'Les agences immobilières en France',taille:'≈ 18 Md€ (honoraires)',etabl:'≈ 35 000',croissance:'cyclique',extra:['Sous enseigne','~55 %'],
       intro:'Marché cyclique ; réseaux dominants, montée des mandataires.',
       structure:[['Réseaux',55,'Orpi, Century 21, Laforêt'],['Indépendants',25,'—'],['Mandataires',20,'iad, Capifrance']]},
     ref:{name:'Orpi France',note:'Premier réseau coopératif (données Pappers).',ca:'38,4 M€ (tête de réseau)',croissance:'cyclique',marge:'RN 1,5 M€',sal:'50–99',extra:'~1 350 agences'}},
-  padel:{label:'Padel',icon:'🎾',naf:['93.11Z'],apeLabel:'APE 9311Z',refM2:2000,caM2:250,depHab:10,margeExploit:0.20,invest:600000,
+  padel:{label:'Padel',icon:'🎾',naf:['93.11Z'],osm:['sport=padel'],apeLabel:'APE 9311Z',refM2:2000,caM2:250,depHab:10,margeExploit:0.20,invest:600000,
     market:{title:'Le padel en France',taille:'≈ 0,3 Md€',etabl:'≈ 700 clubs',croissance:'+30 %/an',extra:['Dynamique','explosive'],
       intro:'Croissance explosive ; marché peu structuré — fenêtre d\'opportunité.',
       structure:[['Clubs dédiés',50,'4Padel, All In'],['Multisports',50,'—']]},
     ref:{name:'4Padel — moyenne clubs',note:'Franchise : référence = moyenne des clubs (données Pappers).',ca:'≈ 1,0 M€ / club',croissance:'forte',marge:'variable',sal:'6–9 / club',extra:'Strasbourg +73 k€ · Reims −81 k€'}},
-  footindoor:{label:'Foot indoor',icon:'⚽',naf:['93.11Z'],apeLabel:'APE 9311Z',refM2:2500,caM2:200,depHab:9,margeExploit:0.15,invest:500000,
+  footindoor:{label:'Foot indoor',icon:'⚽',naf:['93.11Z'],osm:[],apeLabel:'APE 9311Z',refM2:2500,caM2:200,depHab:9,margeExploit:0.15,invest:500000,
     market:{title:'Le foot indoor en France',taille:'≈ 0,2 Md€',etabl:'≈ 300 centres',croissance:'+4 %/an',extra:['Format','5v5 urbain'],
       intro:'Loisir urbain mature ; diversification vers padel et multisports.',
       structure:[['Enseignes',55,'Le Five, UrbanSoccer'],['Indépendants',45,'—']]},
     ref:{name:'Le Five (Soccer 5 France)',note:'Parmi les leaders (données Pappers).',ca:'14,0 M€',croissance:'+',marge:'RN 7,2 M€ (2025)',sal:'50–99',extra:'UrbanSoccer ~5,6 M€'}},
-  bowling:{label:'Bowling',icon:'🎳',naf:['93.29Z'],apeLabel:'APE 9329Z',refM2:1500,caM2:600,depHab:12,margeExploit:0.18,invest:900000,
+  bowling:{label:'Bowling',icon:'🎳',naf:['93.29Z'],osm:['leisure=bowling_alley'],apeLabel:'APE 9329Z',refM2:1500,caM2:600,depHab:12,margeExploit:0.18,invest:900000,
     market:{title:'Le bowling en France',taille:'≈ 0,4 Md€',etabl:'≈ 500',croissance:'+2 %/an',extra:['Tendance','multi-loisirs'],
       intro:'Loisir familial intégré à des complexes multi-activités.',
       structure:[['Complexes multi-loisirs',60,'—'],['Indépendants',40,'—']]},
     ref:{name:'Speed Park — franchisés',note:'Réseau : référence = moyenne des sites (données Pappers).',ca:'n.c.',croissance:'+',marge:'RN ≈ 0,3–0,7 M€ / site',sal:'10–19 / site',extra:'Vannes +719 k€ · Le Mans +280 k€'}},
-  karting:{label:'Karting',icon:'🏎️',naf:['93.29Z'],apeLabel:'APE 9329Z',refM2:3000,caM2:300,depHab:8,margeExploit:0.16,invest:700000,
+  karting:{label:'Karting',icon:'🏎️',naf:['93.29Z'],osm:['sport=karting'],apeLabel:'APE 9329Z',refM2:3000,caM2:300,depHab:8,margeExploit:0.16,invest:700000,
     market:{title:'Le karting de loisir en France',taille:'≈ 0,2 Md€',etabl:'≈ 300 pistes',croissance:'+3 %/an',extra:['Format','indoor en hausse'],
       intro:'Porté par les pistes indoor urbaines et les offres entreprises.',
       structure:[['Indoor',55,'—'],['Outdoor',45,'—']]},
     ref:{name:'Speed Park — franchisés',note:'Réseau : référence = moyenne des sites (données Pappers).',ca:'n.c.',croissance:'+',marge:'RN ≈ 0,3–0,7 M€ / site',sal:'10–19 / site',extra:'Vannes +719 k€ · Le Mans +280 k€'}},
-  golfindoor:{label:'Golf indoor',icon:'⛳',naf:['93.11Z'],apeLabel:'APE 9311Z',refM2:400,caM2:900,depHab:6,margeExploit:0.20,invest:400000,
+  golfindoor:{label:'Golf indoor',icon:'⛳',naf:['93.11Z'],osm:[],apeLabel:'APE 9311Z',refM2:400,caM2:900,depHab:6,margeExploit:0.20,invest:400000,
     market:{title:'Le golf indoor en France',taille:'niche en croissance',etabl:'≈ 150 centres',croissance:'+10 %/an',extra:['Cible','urbaine'],
       intro:'Niche émergente : simulateurs démocratisant le golf en ville.',
       structure:[['Studios simulateurs',60,'—'],['Practices couverts',40,'—']]},
@@ -529,7 +539,7 @@ const GYM_BRANDS={'basic':['Low-cost','20–30 €/mois'],'fitness park':['Low-c
   'on air':['Premium','50–80 €/mois'],'wellness':['Premium','60–120 €/mois']};
 
 /* ================= ÉTAT & CONFIG ================= */
-const state={business:'zone',time:10,modes:['car'],pos:'mid',surface:900,addr:null,level:1,data:null,dataKey:''};
+const state={business:'zone',time:10,modes:['car'],pos:'mid',surface:900,addr:null,level:1,data:null,dataKey:'',excluded:new Set()};
 const modeLabel=()=>state.modes.length>1?'voiture + piéton':(state.modes[0]==='car'?'en voiture':'à pied');
 const sel=document.getElementById('business');
 {const o=document.createElement('option');o.value='zone';o.textContent='🗺️ Zone de chalandise seule (sans business)';sel.appendChild(o);}
@@ -599,6 +609,7 @@ async function fetchData(){
   const s=SECTORS[state.business];
   const key=[state.addr.lat,state.addr.lon,state.time,state.modes.join('+'),state.business].join('|');
   if(state.data&&state.dataKey===key)return state.data;
+  state.excluded.clear();
   document.getElementById('warn').style.display='none';
   const D={warnings:[]};
 
@@ -636,35 +647,66 @@ async function fetchData(){
     D.communes=Object.values(seen).map(c=>{
       const zonePart=D.areaKm2*c.hits/tot,comKm2=(c.surface||1000)/100;
       const share=Math.min(1,zonePart/comKm2);
-      return{nom:c.nom,popIn:Math.round((c.population||0)*share)};
+      return{nom:c.nom,code:c.code,share,popIn:Math.round((c.population||0)*share)};
     }).sort((a,b)=>b.popIn-a.popIn);
     D.pop=D.communes.reduce((a,c)=>a+c.popIn,0);
   }catch(e){}
   if(!D.pop){D.pop=Math.round(D.areaKm2*2500);
     D.warnings.push('API communes injoignable — population estimée par densité moyenne.');}
 
-  D.comps=[];D.concOk=true;
-  if(!s){D.concOk=false;}
-  else{setStatus('3/3 · Concurrents réels (SIRENE)…');
+  /* --- 3/4 · Indicateurs socio-économiques (INSEE) --- */
+  setStatus('3/4 · Emploi, démographie & chômage (INSEE)…');
+  D.socio=null;
   try{
-    const radius=Math.min(50,Math.max(1,Math.sqrt(D.areaKm2/Math.PI)));
-    const d=await jget(`https://recherche-entreprises.api.gouv.fr/near_point?lat=${state.addr.lat}&long=${state.addr.lon}&radius=${radius.toFixed(1)}&activite_principale=${s.naf.join(',')}&per_page=25`);
-    (d.results||[]).forEach(r=>{
-      (r.matching_etablissements||[]).filter(e=>e.etat_administratif==='A'&&(!e.activite_principale||s.naf.includes(e.activite_principale))).forEach(e=>{
-        if(!e.latitude||!e.longitude)return;
-        const dist=haversine([state.addr.lat,state.addr.lon],[Number(e.latitude),Number(e.longitude)]);
-        if(dist>radius*1.15)return;
-        const fin=r.finances?Object.entries(r.finances).sort((a,b)=>b[0]-a[0])[0]:null;
-        const ens=(e.liste_enseignes&&e.liste_enseignes[0])||r.nom_complet||r.nom_raison_sociale;
-        D.comps.push({ens,soc:(e.liste_enseignes&&e.liste_enseignes[0])?r.nom_raison_sociale:null,
-          adr:e.adresse||'',created:r.date_creation?r.date_creation.slice(0,4):'n.c.',
-          dist,lat:Number(e.latitude),lon:Number(e.longitude),
-          ca:fin?fin[1].ca:null,rn:fin?fin[1].resultat_net:null,anF:fin?fin[0]:null});
-      });});
-    D.comps.sort((a,b)=>a.dist-b.dist);
-    const dd={};D.comps=D.comps.filter(c=>{const k=c.ens+'|'+c.adr;if(dd[k])return false;dd[k]=1;return true;}).slice(0,15);
+    const codes=D.communes.map(c=>c.code).filter(Boolean);
+    if(codes.length){
+      const S=await jget('/api/insee?codes='+encodeURIComponent(codes.join(',')),12000);
+      const A={emplois:0,emploisAn:0,chom:0,act:0,chomAn:0,popNew:0,popOld:0,anNew:0,anOld:0,partiel:false};
+      D.communes.forEach(c=>{
+        const sh=Math.min(1,c.share||1);
+        const e=S.emplois&&S.emplois[c.code];
+        if(e){A.emplois+=e.v*sh;A.emploisAn=Math.max(A.emploisAn,e.annee);}else A.partiel=true;
+        const ch=S.chomage&&S.chomage[c.code];
+        if(ch){A.chom+=ch.chomeurs*sh;A.act+=ch.actifs*sh;A.chomAn=Math.max(A.chomAn,ch.annee);}
+        const p=S.population&&S.population[c.code];
+        if(p){
+          const yrs=Object.keys(p).map(Number).sort((a,b)=>a-b);
+          if(yrs.length>=2){
+            const yN=yrs[yrs.length-1];
+            let yO=yrs.find(y=>y<=yN-5);if(yO==null)yO=yrs[0];
+            if(yO!==yN){A.popNew+=p[yN]*sh;A.popOld+=p[yO]*sh;
+              A.anNew=Math.max(A.anNew,yN);A.anOld=A.anOld?Math.min(A.anOld,yO):yO;}
+          }
+        }
+      });
+      D.socio={
+        emplois:A.emplois>0?Math.round(A.emplois):null, emploisAn:A.emploisAn||null, emploisPartiel:A.partiel,
+        chomage:A.act>0?A.chom/A.act:null, chomageAn:A.chomAn||null, actifs:A.act>0?Math.round(A.act):null,
+        evol:(A.popOld>0&&A.popNew>0)?(A.popNew/A.popOld-1):null,
+        evolAn:A.anNew||null, evolAnOld:A.anOld||null,
+        evolAnnuel:(A.popOld>0&&A.popNew>0&&A.anNew>A.anOld)?Math.pow(A.popNew/A.popOld,1/(A.anNew-A.anOld))-1:null
+      };
+    }
+  }catch(e){D.warnings.push('Indicateurs INSEE (emploi, démographie, chômage) indisponibles pour le moment.');}
+
+  /* --- 4/4 · Concurrence : terrain (OpenStreetMap) puis chiffres (SIRENE) --- */
+  D.comps=[];D.concOk=true;D.compStats=null;
+  if(!s){D.concOk=false;}
+  else{setStatus('4/4 · Concurrents : recherche terrain puis chiffres officiels…');
+  try{
+    const radius=Math.min(25,Math.max(1,Math.sqrt(D.areaKm2/Math.PI)));
+    const r=await fetch('/api/competitors',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:state.addr.lat,lon:state.addr.lon,radiusKm:radius,naf:s.naf,osm:s.osm||[]})});
+    if(!r.ok)throw new Error(r.status);
+    const d=await r.json();
+    (d.warnings||[]).forEach(w=>D.warnings.push(w));
+    D.compStats=d.stats||null;
+    D.comps=(d.comps||[])
+      .filter(c=>pip([c.lat,c.lon],D.poly)||c.dist<=radius)
+      .map(c=>({...c,created:c.created||'n.c.'}))
+      .slice(0,20);
   }catch(e){D.concOk=false;
-    D.warnings.push('API SIRENE injoignable — concurrents non chargés (fonctionne une fois en ligne).');}}
+    D.warnings.push('Recherche de concurrents indisponible — réessayez dans un instant.');}}
 
   state.data=D;state.dataKey=key;
   return D;
@@ -701,6 +743,37 @@ function lockWrap(inner,req,cur,title,oldPrice,desc){
       ${cta}
     </div></div></div>`;
 }
+/* ====== CONCURRENTS RETIRÉS PAR LE CLIENT ====== */
+function compKey(c){return [c.ens||'',c.adr||'',(c.lat||0).toFixed(4)].join('|');}
+function activeComps(D){return (D.comps||[]).filter(c=>!state.excluded.has(compKey(c)));}
+function dropComp(k){state.excluded.add(decodeURIComponent(k));render(state.level,state.data);}
+function restoreComps(){state.excluded.clear();render(state.level,state.data);}
+
+/* ====== EMPLOI · DÉMOGRAPHIE · CHÔMAGE ====== */
+function socioSection(D){
+  const S=D.socio||{};
+  const evol=S.evol==null?'—':((S.evol>=0?'+':'−')+(Math.abs(S.evol)*100).toFixed(1)+' %');
+  const evolU=S.evol==null?'donnée indisponible'
+    :`entre ${S.evolAnOld} et ${S.evolAn}${S.evolAnnuel!=null?' · '+(S.evolAnnuel>=0?'+':'−')+(Math.abs(S.evolAnnuel)*100).toFixed(2)+' %/an':''}`;
+  const ratio=(S.emplois&&S.actifs)?S.emplois/S.actifs:null;
+  return `<div class="rsection"><h3>Emploi, démographie & chômage</h3>
+    <div class="tiles">
+      <div class="tile"><div class="k">💼 Emplois dans la zone</div>
+        <div class="v">${S.emplois!=null?fmt(S.emplois):'—'}</div>
+        <div class="u">${S.emplois!=null?'personnes y travaillent · recensement '+S.emploisAn:'donnée indisponible'}</div></div>
+      <div class="tile ${S.evol==null?'':(S.evol>=0?'good':'warn')}"><div class="k">📈 Évolution démographique</div>
+        <div class="v">${evol}</div><div class="u">${evolU}</div></div>
+      <div class="tile ${S.chomage==null?'':(S.chomage<=0.08?'good':'warn')}"><div class="k">📉 Taux de chômage</div>
+        <div class="v">${S.chomage==null?'—':(S.chomage*100).toFixed(1)+' %'}</div>
+        <div class="u">${S.chomage==null?'donnée indisponible':'des actifs · recensement '+S.chomageAn}</div></div>
+      <div class="tile"><div class="k">⚖️ Emplois / actifs résidents</div>
+        <div class="v">${ratio==null?'—':ratio.toFixed(2)}</div>
+        <div class="u">${ratio==null?'donnée indisponible':(ratio>=1?'pôle d\'emploi (attire des actifs)':'zone résidentielle')}</div></div>
+    </div>
+    <p class="note">Sources : INSEE — emplois au lieu de travail et taux de chômage (recensement${S.emploisAn?' '+S.emploisAn:''}), populations légales pour l'évolution. Valeurs proratisées sur la part de chaque commune réellement couverte par la zone.${S.emploisPartiel?' Certaines communes de la zone n\'ont pas de donnée publiée.':''}</p>
+  </div>`;
+}
+
 const bar=(lab,v)=>`<div class="bar-row"><span class="lab">${lab}</span>
   <span class="bar-track"><span class="bar-fill" style="width:${(v*100).toFixed(0)}%"></span></span>
   <span class="val">${(v*100).toFixed(0)}%</span></div>`;
@@ -748,6 +821,7 @@ function renderZone(D){
         </div>
       </div>
     </div></div>`;
+  html+=socioSection(D);
   html+=`<div class="rsection"><h3>Flux dans la zone <span class="estchip">INDICE ESTIMÉ</span></h3>
     <div class="cols2b">
       <div class="cardbox"><h4>Profil de passage — journée type</h4>${hbars([0.30,0.65,0.45,0.35,0.45,0.90,0.80,0.40,0.35,0.42,0.55,0.92,1.00,0.72,0.45])}
@@ -766,6 +840,7 @@ function renderZone(D){
   html+=`<div class="betabox">🎁 <b>Bêta gratuite</b> — vos retours nous aident : dites-nous ce qui manque !</div>`;
   document.getElementById('r-content').innerHTML=html;
   if(typeof L!=='undefined'){
+    if(map){try{map.remove();}catch(e){}map=null;}
     map=L.map('lmap');
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
     let pl=null;
@@ -782,6 +857,7 @@ function renderZone(D){
 }
 function render(level,D){
   if(state.business==='zone'){renderZone(D);return;}
+  const comps=activeComps(D);const nExcl=state.excluded.size;
   const s=SECTORS[state.business];
   document.getElementById('config-view').style.display='none';
   document.getElementById('result').style.display='block';
@@ -796,7 +872,7 @@ function render(level,D){
   let depHab=s.depHab;
   if(s.hasGym)depHab=s.penetration*POS[state.pos].ab*12;
   const marche=D.pop*depHab;
-  const n=D.concOk?Math.max(1,D.comps.length):Math.max(1,Math.round(D.pop/12000));
+  const n=D.concOk?Math.max(1,comps.length):Math.max(1,Math.round(D.pop/12000));
   const part=Math.min(0.35,1/(n+1));
   let capCA=s.caM2*state.surface;
   if(s.hasGym)capCA=state.surface*POS[state.pos].dens*POS[state.pos].ab*12;
@@ -808,7 +884,7 @@ function render(level,D){
     const ebeM=caPot/12*ramp*s.margeExploit-credit-(m===1?Math.min(15000,inv*.04):0);
     cum+=ebeM;if(!be&&ebeM>0)be=m;months.push(cum);}
   const ebeCruise=caPot/12*s.margeExploit-credit;
-  const pubCa=D.comps.filter(c=>c.ca);
+  const pubCa=comps.filter(c=>c.ca);
   const fluxP=Math.round(D.pop*0.11/10)*10;
 
   let html='';
@@ -822,7 +898,7 @@ function render(level,D){
           <div class="tile"><div class="k">Population accessible</div><div class="v">${fmt(D.pop)}</div><div class="u">habitants (est.)</div></div>
           <div class="tile"><div class="k">Ménages</div><div class="v">${fmt(D.pop/2.2)}</div><div class="u">foyers (est.)</div></div>
           <div class="tile"><div class="k">Superficie</div><div class="v">${D.areaKm2.toFixed(0)}<span style="font-size:14px"> km²</span></div><div class="u">zone isochrone</div></div>
-          <div class="tile"><div class="k">Concurrents actifs</div><div class="v">${level>=2&&D.concOk?D.comps.length:'🔒'}</div><div class="u">${level>=2?'dans la zone':'niveau 2'}</div></div>
+          <div class="tile"><div class="k">Concurrents actifs</div><div class="v">${level>=2&&D.concOk?comps.length:'🔒'}</div><div class="u">${level>=2?'dans la zone':'niveau 2'}</div></div>
         </div>
         <div class="cardbox" style="margin-top:13px"><h4>Composition — communes couvertes</h4>
           ${D.communes.slice(0,6).map(c=>{const p=D.pop?c.popIn/D.pop:0;
@@ -832,6 +908,8 @@ function render(level,D){
         </div>
       </div>
     </div></div>`;
+
+  html+=socioSection(D);
 
   /* ---- NIVEAU 2 : étude ---- */
   let etude='';
@@ -877,24 +955,29 @@ function render(level,D){
   const brand=e=>{if(!s.hasGym)return null;const k=Object.keys(GYM_BRANDS).find(b=>e.toLowerCase().includes(b));return k?GYM_BRANDS[k]:null;};
   etude+=`<div class="rsection"><h3>Concurrence réelle — identifiée par code APE</h3>
     <div class="tiles" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
-      <div class="tile"><div class="k">Concurrents actifs (${s.apeLabel.replace('APE ','')})</div><div class="v">${D.concOk?D.comps.length:'—'}</div><div class="u">dans la zone</div></div>
-      <div class="tile"><div class="k">Densité</div><div class="v">${D.concOk&&D.comps.length?fmt(D.pop/D.comps.length):'—'}</div><div class="u">hab. / concurrent</div></div>
+      <div class="tile"><div class="k">Concurrents actifs (${s.apeLabel.replace('APE ','')})</div><div class="v">${D.concOk?comps.length:'—'}</div><div class="u">dans la zone</div></div>
+      <div class="tile"><div class="k">Densité</div><div class="v">${D.concOk&&comps.length?fmt(D.pop/comps.length):'—'}</div><div class="u">hab. / concurrent</div></div>
       <div class="tile"><div class="k">CA moyen publié</div><div class="v">${pubCa.length?money(pubCa.reduce((a,c)=>a+c.ca,0)/pubCa.length):'n.p.'}</div><div class="u">dernier exercice</div></div>
-      <div class="tile"><div class="k">Plus proche</div><div class="v">${D.comps.length?D.comps[0].dist.toFixed(1)+' km':'—'}</div><div class="u">de votre adresse</div></div>
+      <div class="tile"><div class="k">Plus proche</div><div class="v">${comps.length?comps[0].dist.toFixed(1)+' km':'—'}</div><div class="u">de votre adresse</div></div>
     </div>
     <div class="cardbox">
       <div style="margin-bottom:12px"><span class="apechip">${s.apeLabel}</span></div>
       <div class="comp-scroll"><table class="comp">
-        <thead><tr><th>Enseigne / société</th><th>Adresse</th>${s.hasGym?'<th>Positionnement</th>':''}<th>Créée</th><th>Distance</th><th>CA (dernier ex.)</th><th>Résultat net</th></tr></thead>
-        <tbody>${D.comps.map(c=>{const b=brand(c.ens);
+        <thead><tr><th>Enseigne / société</th><th>Adresse</th>${s.hasGym?'<th>Positionnement</th>':''}<th>Créée</th><th>Distance</th><th>CA (dernier ex.)</th><th>Résultat net</th><th>Source</th><th></th></tr></thead>
+        <tbody>${comps.map(c=>{const b=brand(c.ens);
+          const srcLab=c.src==='both'?['Terrain + SIRENE','ok']:(c.src==='osm'?['Terrain','osm']:['SIRENE','sir']);
           return `<tr><td>📍 ${c.ens}${c.soc?`<span class="soc">Société : ${c.soc}</span>`:''}</td>
-          <td>${c.adr}</td>${s.hasGym?`<td style="text-align:right">${b?b[0]+' · '+b[1]:'—'}</td>`:''}
+          <td>${c.adr||'<span class="na">adresse non publiée</span>'}</td>${s.hasGym?`<td style="text-align:right">${b?b[0]+' · '+b[1]:'—'}</td>`:''}
           <td>${c.created}</td><td>${c.dist.toFixed(1)} km</td>
           <td class="${c.ca?'':'na'}">${c.ca?money(c.ca):'—'}</td>
-          <td class="${c.rn==null?'na':c.rn>=0?'pos':'neg'}">${c.rn==null?'—':(c.rn>=0?'+':'−')+fmt(Math.abs(c.rn))+' €'}${c.anF?` <span class="na">(${c.anF})</span>`:''}</td></tr>`;}).join('')
-          ||`<tr><td colspan="7" class="na">${D.concOk?'Aucun concurrent de ce secteur détecté — signal potentiellement très favorable (à vérifier sur le terrain).':'Concurrents non chargés (API injoignable ici — fonctionne en ligne).'}</td></tr>`}</tbody>
+          <td class="${c.rn==null?'na':c.rn>=0?'pos':'neg'}">${c.rn==null?'—':(c.rn>=0?'+':'−')+fmt(Math.abs(c.rn))+' €'}${c.anF?` <span class="na">(${c.anF})</span>`:''}</td>
+          <td><span class="srcchip ${srcLab[1]}">${srcLab[0]}</span></td>
+          <td><button class="delc" title="Retirer ce concurrent de l'étude" onclick="dropComp('${encodeURIComponent(compKey(c))}')">✕</button></td></tr>`;}).join('')
+          ||`<tr><td colspan="9" class="na">${D.concOk?'Aucun concurrent de ce secteur détecté — signal potentiellement très favorable (à vérifier sur le terrain).':'Concurrents non chargés (API injoignable ici — fonctionne en ligne).'}</td></tr>`}</tbody>
       </table></div>
-      <p class="note">Source : <b>API Recherche d'entreprises (SIRENE)</b> — établissements <b>actifs</b> uniquement, filtrés sur le code APE de l'établissement, distance depuis votre adresse. CA / résultat net : comptes publiés (niveau société) ; « — » = non publié, fréquent pour les petites structures.</p>
+      ${nExcl?`<div class="excl-bar">${nExcl} concurrent${nExcl>1?'s':''} retiré${nExcl>1?'s':''} de l'étude — tous les calculs ont été mis à jour. <button onclick="restoreComps()">Tout réintégrer</button></div>`:
+        `<p class="note" style="margin-top:10px">✕ Un concurrent ne vous concerne pas ? Retirez-le : le marché captable, le CA potentiel et le business plan sont recalculés instantanément.</p>`}
+      <p class="note">Méthode : recherche <b>terrain</b> des établissements réellement implantés (OpenStreetMap), puis croisement avec la base <b>SIRENE</b> sur le code APE de l'établissement pour ne garder que les entreprises <b>actives</b> et récupérer leurs chiffres officiels. « Terrain » = présent sur place mais sans comptes rattachés ; « SIRENE » = enregistré au bon code APE sans fiche terrain.${D.compStats?` (${D.compStats.terrain} fiches terrain · ${D.compStats.sirene} établissements SIRENE)`:''} CA / résultat net : comptes publiés au niveau société ; « — » = non publié, fréquent pour les petites structures.</p>
     </div></div>`;
 
   etude+=`<div class="rsection"><h3>Marché & potentiel</h3>
@@ -927,7 +1010,7 @@ function render(level,D){
       <li>Marché local de ${money(marche)}/an · secteur ${m.croissance}</li>
       <li>Part captable estimée : ${pct(part)}</li></ul></div>
     <div class="swot-card sw-t"><h5>🛡️ Menaces</h5><ul>
-      <li>${n} concurrent(s) actif(s)${D.comps.length?` — le plus proche à ${D.comps[0].dist.toFixed(1)} km`:''}</li>
+      <li>${n} concurrent(s) actif(s)${comps.length?` — le plus proche à ${comps[0].dist.toFixed(1)} km`:''}</li>
       <li>Sensibilité du CA à l'emplacement exact et à la visibilité</li></ul></div>
   </div></div>`;
 
@@ -964,6 +1047,7 @@ function render(level,D){
 
   /* carte Leaflet */
   if(typeof L!=='undefined'){
+    if(map){try{map.remove();}catch(e){}map=null;}
     map=L.map('lmap');
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
     let pl=null;
@@ -972,7 +1056,7 @@ function render(level,D){
         .bindPopup(z.mode==='car'?'🚗 Zone en voiture':'🚶 Zone à pied');
       if(z.poly===D.poly)pl=p;});
     L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#1F3A5F',fillColor:'#1F3A5F',fillOpacity:1}).addTo(map).bindPopup('<b>Votre emplacement</b>');
-    if(level>=2)D.comps.forEach(c=>L.circleMarker([c.lat,c.lon],{radius:6,color:'#B23A3A',fillColor:'#B23A3A',fillOpacity:.85}).addTo(map).bindPopup(`<b>${c.ens}</b><br>${c.adr}<br>${c.dist.toFixed(1)} km`));
+    if(level>=2)comps.forEach(c=>L.circleMarker([c.lat,c.lon],{radius:6,color:'#B23A3A',fillColor:'#B23A3A',fillOpacity:.85}).addTo(map).bindPopup(`<b>${c.ens}</b><br>${c.adr}<br>${c.dist.toFixed(1)} km`));
     map.fitBounds(pl.getBounds(),{padding:[16,16]});
   }else{
     const el=document.getElementById('lmap');

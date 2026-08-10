@@ -1,3 +1,7 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "functions": {
+    "api/competitors.js": { "maxDuration": 40 },
+    "api/insee.js": { "maxDuration": 25 }
+  }
 }
