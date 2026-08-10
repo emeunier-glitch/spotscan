@@ -152,6 +152,9 @@
   .comp-scroll{overflow-x:auto}
   .apechip{display:inline-block;background:var(--navy);color:#fff;font-weight:700;font-size:12px;
        padding:4px 10px;border-radius:7px;letter-spacing:.4px}
+  .cmp{display:inline-block;margin-top:7px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;line-height:1.35}
+  .cmp.good{background:#e4f2e9;color:var(--green)} .cmp.bad{background:#fbeaea;color:var(--red)}
+  .cmp.neu{background:var(--light);color:#56677a}
   .srcchip{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}
   .srcchip.ok{background:#e4f2e9;color:var(--green)} .srcchip.osm{background:#fdf3e0;color:var(--amber)}
   .srcchip.sir{background:var(--light);color:var(--blue)}
@@ -568,6 +571,7 @@ document.querySelectorAll('#seg-pos button').forEach(b=>b.onclick=()=>{document.
 
 /* ================= HELPERS ================= */
 const fmt=n=>Math.round(n).toLocaleString('fr-FR');
+const dec=(n,d=1)=>Number(n).toFixed(d).replace('.',',');
 const keur=n=>(n/1000).toLocaleString('fr-FR',{maximumFractionDigits:0})+' k€';
 const meur=n=>(n/1e6).toLocaleString('fr-FR',{maximumFractionDigits:1})+' M€';
 const money=n=>Math.abs(n)>=1e6?meur(n):keur(n);
@@ -685,13 +689,16 @@ async function fetchData(){
     const codes=D.communes.map(c=>c.code).filter(Boolean);
     if(codes.length){
       const S=await jget('/api/insee?codes='+encodeURIComponent(codes.join(',')),12000);
-      const A={emplois:0,emploisAn:0,chom:0,act:0,chomAn:0,popNew:0,popOld:0,anNew:0,anOld:0,partiel:false};
+      const A={emplois:0,emploisAn:0,chom:0,act:0,chomAn:0,popNew:0,popOld:0,anNew:0,anOld:0,partiel:false,
+        revSum:0,revPop:0,revAn:0};
       D.communes.forEach(c=>{
         const sh=Math.min(1,c.share||1);
         const e=S.emplois&&S.emplois[c.code];
         if(e){A.emplois+=e.v*sh;A.emploisAn=Math.max(A.emploisAn,e.annee);}else A.partiel=true;
         const ch=S.chomage&&S.chomage[c.code];
         if(ch){A.chom+=ch.chomeurs*sh;A.act+=ch.actifs*sh;A.chomAn=Math.max(A.chomAn,ch.annee);}
+        const rv=S.revenu&&S.revenu[c.code];
+        if(rv&&rv.v&&c.popIn>0){A.revSum+=rv.v*c.popIn;A.revPop+=c.popIn;A.revAn=Math.max(A.revAn,rv.annee);}
         const p=S.population&&S.population[c.code];
         if(p){
           const yrs=Object.keys(p).map(Number).sort((a,b)=>a-b);
@@ -708,7 +715,9 @@ async function fetchData(){
         chomage:A.act>0?A.chom/A.act:null, chomageAn:A.chomAn||null, actifs:A.act>0?Math.round(A.act):null,
         evol:(A.popOld>0&&A.popNew>0)?(A.popNew/A.popOld-1):null,
         evolAn:A.anNew||null, evolAnOld:A.anOld||null,
-        evolAnnuel:(A.popOld>0&&A.popNew>0&&A.anNew>A.anOld)?Math.pow(A.popNew/A.popOld,1/(A.anNew-A.anOld))-1:null
+        evolAnnuel:(A.popOld>0&&A.popNew>0&&A.anNew>A.anOld)?Math.pow(A.popNew/A.popOld,1/(A.anNew-A.anOld))-1:null,
+        revenu:A.revPop>0?Math.round(A.revSum/A.revPop):null, revenuAn:A.revAn||null,
+        revenuCouv:D.pop>0?A.revPop/D.pop:0
       };
     }
   }catch(e){D.warnings.push('Indicateurs INSEE (emploi, démographie, chômage) indisponibles pour le moment.');}
@@ -790,28 +799,60 @@ function activeComps(D){return (D.comps||[]).filter(c=>!state.excluded.has(compK
 function dropComp(k){state.excluded.add(decodeURIComponent(k));render(state.level,state.data);}
 function restoreComps(){state.excluded.clear();render(state.level,state.data);}
 
-/* ====== EMPLOI · DÉMOGRAPHIE · CHÔMAGE ====== */
+/* ====== EMPLOI · DÉMOGRAPHIE · CHÔMAGE · REVENU ====== */
+/* Références France, pour situer chaque indicateur (mêmes définitions que les données communales) */
+const FRANCE={revenu:23080,revenuAn:2021,chomage:0.1162,chomageAn:2022,
+  evolAnnuel:0.0035,evolPer:'2016-2022',concentration:0.982};
+const cmpBox=(cls,txt)=>`<div class="cmp ${cls}">${txt}</div>`;
 function socioSection(D){
   const S=D.socio||{};
-  const evol=S.evol==null?'—':((S.evol>=0?'+':'−')+(Math.abs(S.evol)*100).toFixed(1)+' %');
+  const evol=S.evol==null?'—':((S.evol>=0?'+':'−')+dec(Math.abs(S.evol)*100,1)+' %');
   const evolU=S.evol==null?'donnée indisponible'
-    :`entre ${S.evolAnOld} et ${S.evolAn}${S.evolAnnuel!=null?' · '+(S.evolAnnuel>=0?'+':'−')+(Math.abs(S.evolAnnuel)*100).toFixed(2)+' %/an':''}`;
+    :`entre ${S.evolAnOld} et ${S.evolAn}${S.evolAnnuel!=null?' · '+(S.evolAnnuel>=0?'+':'−')+dec(Math.abs(S.evolAnnuel)*100,2)+' %/an':''}`;
   const ratio=(S.emplois&&S.actifs)?S.emplois/S.actifs:null;
-  return `<div class="rsection"><h3>Emploi, démographie & chômage</h3>
+
+  /* --- comparaisons à la moyenne nationale --- */
+  let cEmp='',cEvo='',cCho='',cRev='';
+  if(ratio!=null){
+    const p100=Math.round(ratio*100),ok=ratio>=FRANCE.concentration;
+    cEmp=cmpBox(Math.abs(ratio-FRANCE.concentration)<0.05?'neu':(ok?'good':'bad'),
+      `${p100} emplois pour 100 actifs résidents · France : 98`);
+  }
+  if(S.evolAnnuel!=null){
+    const d=(S.evolAnnuel-FRANCE.evolAnnuel)*100;
+    cEvo=cmpBox(Math.abs(d)<0.1?'neu':(d>0?'good':'bad'),
+      Math.abs(d)<0.1?`≈ au rythme national (+0,35 %/an)`
+        :`${d>0?'▲':'▼'} ${(d>0?'+':'−')+dec(Math.abs(d),2)} pt/an vs France (+0,35 %/an)`);
+  }
+  if(S.chomage!=null){
+    const d=(S.chomage-FRANCE.chomage)*100;
+    cCho=cmpBox(Math.abs(d)<0.5?'neu':(d<0?'good':'bad'),
+      Math.abs(d)<0.5?`≈ moyenne nationale (11,6 %)`
+        :`${d<0?'▼':'▲'} ${(d>0?'+':'−')+dec(Math.abs(d),1)} pts vs France (11,6 %)`);
+  }
+  if(S.revenu!=null){
+    const e=S.revenu/FRANCE.revenu-1;
+    cRev=cmpBox(Math.abs(e)<0.03?'neu':(e>0?'good':'bad'),
+      Math.abs(e)<0.03?`≈ moyenne nationale (23 080 €)`
+        :`${e>0?'▲':'▼'} ${(e>0?'+':'−')+(Math.abs(e)*100).toFixed(0)} % vs France (23 080 €)`);
+  }
+
+  return `<div class="rsection"><h3>Emploi, démographie, chômage & revenus</h3>
     <div class="tiles">
       <div class="tile"><div class="k">💼 Emplois dans la zone</div>
         <div class="v">${S.emplois!=null?fmt(S.emplois):'—'}</div>
-        <div class="u">${S.emplois!=null?'personnes y travaillent · recensement '+S.emploisAn:'donnée indisponible'}</div></div>
+        <div class="u">${S.emplois!=null?'personnes y travaillent · recensement '+S.emploisAn:'donnée indisponible'}</div>${cEmp}</div>
       <div class="tile ${S.evol==null?'':(S.evol>=0?'good':'warn')}"><div class="k">📈 Évolution démographique</div>
-        <div class="v">${evol}</div><div class="u">${evolU}</div></div>
-      <div class="tile ${S.chomage==null?'':(S.chomage<=0.08?'good':'warn')}"><div class="k">📉 Taux de chômage</div>
-        <div class="v">${S.chomage==null?'—':(S.chomage*100).toFixed(1)+' %'}</div>
-        <div class="u">${S.chomage==null?'donnée indisponible':'des actifs · recensement '+S.chomageAn}</div></div>
-      <div class="tile"><div class="k">⚖️ Emplois / actifs résidents</div>
-        <div class="v">${ratio==null?'—':ratio.toFixed(2)}</div>
-        <div class="u">${ratio==null?'donnée indisponible':(ratio>=1?'pôle d\'emploi (attire des actifs)':'zone résidentielle')}</div></div>
+        <div class="v">${evol}</div><div class="u">${evolU}</div>${cEvo}</div>
+      <div class="tile ${S.chomage==null?'':(S.chomage<=FRANCE.chomage?'good':'warn')}"><div class="k">📉 Taux de chômage</div>
+        <div class="v">${S.chomage==null?'—':dec(S.chomage*100,1)+' %'}</div>
+        <div class="u">${S.chomage==null?'donnée indisponible':'des actifs · recensement '+S.chomageAn}</div>${cCho}</div>
+      <div class="tile ${S.revenu==null?'':(S.revenu>=FRANCE.revenu?'good':'warn')}"><div class="k">💶 Revenu médian</div>
+        <div class="v">${S.revenu==null?'—':fmt(S.revenu)+' €'}</div>
+        <div class="u">${S.revenu==null?'non publié pour cette zone':'par personne et par an · Filosofi '+S.revenuAn}</div>${cRev}</div>
     </div>
-    <p class="note">Calculé sur l'<b>ensemble de la zone de chalandise</b> (${D.communes.length} commune${D.communes.length>1?'s':''} couverte${D.communes.length>1?'s':''}), et non sur la seule commune d'implantation. Sources : INSEE — emplois au lieu de travail et taux de chômage (recensement${S.emploisAn?' '+S.emploisAn:''}), population municipale par millésime pour l'évolution. Valeurs proratisées sur la part de chaque commune réellement couverte par la zone.${S.emploisPartiel?' Certaines communes de la zone n\'ont pas de donnée publiée.':''}</p>
+    <p class="note">${S.revenu!=null?`<b>Lecture du revenu médian :</b> la moitié des habitants de la zone vit avec moins de ${fmt(S.revenu)} € par an et par personne (revenu disponible après impôts et prestations, corrigé de la composition du foyer), contre 23 080 € en France. ${S.revenu>=FRANCE.revenu*1.1?'Une zone au pouvoir d\'achat supérieur à la moyenne : le positionnement premium y est jouable.':(S.revenu<=FRANCE.revenu*0.9?'Une zone au pouvoir d\'achat inférieur à la moyenne : privilégiez un positionnement accessible et des prix d\'appel.':'Un pouvoir d\'achat proche de la moyenne nationale : positionnement milieu de gamme cohérent.')}${S.revenuCouv<0.8?' Attention : le revenu n\'est publié que pour '+Math.round(S.revenuCouv*100)+' % de la population de la zone (secret statistique sur les petites communes).':''}`:''}</p>
+    <p class="note">Calculé sur l'<b>ensemble de la zone de chalandise</b> (${D.communes.length} commune${D.communes.length>1?'s':''} couverte${D.communes.length>1?'s':''}), et non sur la seule commune d'implantation. Sources : INSEE — emplois au lieu de travail et taux de chômage (recensement${S.emploisAn?' '+S.emploisAn:''}), population municipale par millésime pour l'évolution, revenu médian Filosofi ${S.revenuAn||2021} (moyenne des médianes communales pondérée par la population). Références nationales : recensement 2022 et Filosofi 2021, mêmes définitions. Valeurs proratisées sur la part de chaque commune réellement couverte par la zone.${S.emploisPartiel?' Certaines communes de la zone n\'ont pas de donnée publiée.':''}</p>
   </div>`;
 }
 
@@ -834,7 +875,7 @@ function bizSection(D){
       <div>
         <div class="tiles" style="grid-template-columns:1fr 1fr">
           <div class="tile"><div class="k">Établissements dans la zone</div><div class="v">${fmt(B.total)}</div><div class="u">tous secteurs confondus</div></div>
-          <div class="tile"><div class="k">Densité commerciale</div><div class="v">${dens.toFixed(1)}</div><div class="u">établissements / km²</div></div>
+          <div class="tile"><div class="k">Densité commerciale</div><div class="v">${dec(dens,1)}</div><div class="u">établissements / km²</div></div>
           <div class="tile"><div class="k">Locomotives</div><div class="v">${nLoco}</div><div class="u">grandes surfaces & pôles</div></div>
           <div class="tile"><div class="k">Catégorie dominante</div><div class="v" style="font-size:17px">${top}</div></div>
         </div>
@@ -1051,7 +1092,7 @@ function render(level,D){
       <div class="tile"><div class="k">Concurrents actifs (${s.apeLabel.replace('APE ','')})</div><div class="v">${D.concOk?comps.length:'—'}</div><div class="u">dans la zone</div></div>
       <div class="tile"><div class="k">Densité</div><div class="v">${D.concOk&&comps.length?fmt(D.pop/comps.length):'—'}</div><div class="u">hab. / concurrent</div></div>
       <div class="tile"><div class="k">CA moyen publié</div><div class="v">${pubCa.length?money(pubCa.reduce((a,c)=>a+c.ca,0)/pubCa.length):'n.p.'}</div><div class="u">dernier exercice</div></div>
-      <div class="tile"><div class="k">Plus proche</div><div class="v">${comps.length?comps[0].dist.toFixed(1)+' km':'—'}</div><div class="u">de votre adresse</div></div>
+      <div class="tile"><div class="k">Plus proche</div><div class="v">${comps.length?dec(comps[0].dist,1)+' km':'—'}</div><div class="u">de votre adresse</div></div>
     </div>
     <div class="cardbox">
       <div style="margin-bottom:12px"><span class="apechip">${s.apeLabel}</span></div>
@@ -1061,7 +1102,7 @@ function render(level,D){
           const srcLab=c.src==='both'?['Terrain + SIRENE','ok']:(c.src==='osm'?['Terrain','osm']:['SIRENE','sir']);
           return `<tr><td>📍 ${c.ens}${c.soc?`<span class="soc">Société : ${c.soc}</span>`:''}</td>
           <td>${c.adr||'<span class="na">adresse non publiée</span>'}</td>${s.hasGym?`<td style="text-align:right">${b?b[0]+' · '+b[1]:'—'}</td>`:''}
-          <td>${c.created}</td><td>${c.dist.toFixed(1)} km</td>
+          <td>${c.created}</td><td>${dec(c.dist,1)} km</td>
           <td class="${c.ca?'':'na'}">${c.ca?money(c.ca):'—'}</td>
           <td class="${c.rn==null?'na':c.rn>=0?'pos':'neg'}">${c.rn==null?'—':(c.rn>=0?'+':'−')+fmt(Math.abs(c.rn))+' €'}${c.anF?` <span class="na">(${c.anF})</span>`:''}</td>
           <td><span class="srcchip ${srcLab[1]}">${srcLab[0]}</span></td>
@@ -1105,7 +1146,7 @@ function render(level,D){
       <li>Marché local de ${money(marche)}/an · secteur ${m.croissance}</li>
       <li>Part captable estimée : ${pct(part)}</li></ul></div>
     <div class="swot-card sw-t"><h5>🛡️ Menaces</h5><ul>
-      <li>${n} concurrent(s) actif(s)${comps.length?` — le plus proche à ${comps[0].dist.toFixed(1)} km`:''}</li>
+      <li>${n} concurrent(s) actif(s)${comps.length?` — le plus proche à ${dec(comps[0].dist,1)} km`:''}</li>
       <li>Sensibilité du CA à l'emplacement exact et à la visibilité</li></ul></div>
   </div></div>`;
 
@@ -1151,7 +1192,7 @@ function render(level,D){
         .bindPopup(z.mode==='car'?'🚗 Zone en voiture':'🚶 Zone à pied');
       if(z.poly===D.poly)pl=p;});
     L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#1F3A5F',fillColor:'#1F3A5F',fillOpacity:1}).addTo(map).bindPopup('<b>Votre emplacement</b>');
-    if(level>=2)comps.forEach(c=>L.circleMarker([c.lat,c.lon],{radius:6,color:'#B23A3A',fillColor:'#B23A3A',fillOpacity:.85}).addTo(map).bindPopup(`<b>${c.ens}</b><br>${c.adr}<br>${c.dist.toFixed(1)} km`));
+    if(level>=2)comps.forEach(c=>L.circleMarker([c.lat,c.lon],{radius:6,color:'#B23A3A',fillColor:'#B23A3A',fillOpacity:.85}).addTo(map).bindPopup(`<b>${c.ens}</b><br>${c.adr}<br>${dec(c.dist,1)} km`));
     map.fitBounds(pl.getBounds(),{padding:[16,16]});
     drawBizMap(D);
   }else{

@@ -5,6 +5,7 @@
 const EMPLOIS_RES = 'b4f1bb42-ab1b-4493-8639-0b2ab7a9fb3b'; // Indice de concentration de l'emploi (numerateur = emplois)
 const CHOMAGE_RES = 'b803ffbc-92cc-4f2f-b919-dcf4a44b21b9'; // Taux de chômage au sens du recensement
 const POP_RES     = 'c3fd94a5-ff94-4c33-ae5b-b9811bd72a1f'; // Population par classe d'âge (denominateur = population totale)
+const REV_RES     = '1187a4c9-711f-4d16-b775-a313a09627b6'; // Niveau de vie médian par UC (Filosofi)
 const TAB = 'https://tabular-api.data.gouv.fr/api/resources';
 
 // Les arrondissements municipaux n'existent pas dans ces jeux : on remonte à la commune
@@ -75,6 +76,22 @@ async function population(codes) {
   return out;
 }
 
+// --- Niveau de vie médian (revenu disponible par unité de consommation) ---
+// Secret statistique : les petites communes sont renvoyées avec valeur = null.
+async function revenu(codes) {
+  const out = {};
+  const url = `${TAB}/${REV_RES}/data/?code_com__in=${codes.join(',')}&page_size=50`;
+  const d = await jget(url);
+  for (const row of (d.data || [])) {
+    const code = normCode(row.code_com);
+    const v = Number(row.valeur);
+    const an = Number(row.annee) || 0;
+    if (row.valeur == null || !isFinite(v) || v <= 0) continue;
+    if (!out[code] || an > out[code].annee) out[code] = { v: Math.round(v), annee: an };
+  }
+  return out;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -83,18 +100,20 @@ export default async function handler(req, res) {
   const codes = [...new Set(raw.split(',').map(normCode).filter(c => /^[0-9AB]{5}$/i.test(c)))].slice(0, 25);
   if (!codes.length) { res.status(400).json({ error: 'Aucun code commune valide' }); return; }
 
-  const [e, c, p] = await Promise.all([
+  const [e, c, p, r] = await Promise.all([
     emplois(codes).catch(() => ({})),
     chomage(codes).catch(() => ({})),
-    population(codes).catch(() => ({}))
+    population(codes).catch(() => ({})),
+    revenu(codes).catch(() => ({}))
   ]);
 
   res.status(200).json({
-    emplois: e, chomage: c, population: p,
+    emplois: e, chomage: c, population: p, revenu: r,
     sources: {
       emplois: 'INSEE — recensement (emplois au lieu de travail), via data.gouv.fr',
       chomage: 'INSEE — taux de chômage au sens du recensement (15 ans ou plus)',
-      population: 'INSEE — population municipale par millésime de recensement, via data.gouv.fr'
+      population: 'INSEE — population municipale par millésime de recensement, via data.gouv.fr',
+      revenu: 'INSEE-DGFiP-Cnaf-Cnav-CCMSA (Filosofi) — niveau de vie médian par unité de consommation'
     }
   });
 }
