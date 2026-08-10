@@ -7,8 +7,11 @@
 
 const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter'
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
 ];
+// Overpass exige un User-Agent identifiable : sans lui, les serveurs publics rejettent la requête.
+const UA = 'SpotScan/1.0 (etude-implantation; +https://www.spotscan.fr)';
 const SIRENE = 'https://recherche-entreprises.api.gouv.fr';
 
 const LEGAL = /\b(sarl|sas|sasu|eurl|sci|snc|sa|scop|scm|selarl|earl|gie|ets|etablissements|societe|ste|monsieur|madame|mr|mme)\b/g;
@@ -57,9 +60,9 @@ async function fromOSM(lat, lon, radiusM, osmTags) {
   let data = null, lastErr = null;
   for (const ep of OVERPASS) {
     try {
-      data = await jget(ep, 24000, {
+      data = await jget(ep, 15000, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', accept: 'application/json', 'User-Agent': UA },
         body: 'data=' + encodeURIComponent(q)
       });
       break;
@@ -155,7 +158,7 @@ export default async function handler(req, res) {
   const warnings = [];
   const [osmRes, sirRes] = await Promise.all([
     fromOSM(lat, lon, Math.round(radiusKm * 1000), osmTags)
-      .catch(e => { warnings.push('Recherche terrain (OpenStreetMap) indisponible — seule la source SIRENE a été utilisée.'); return []; }),
+      .catch(e => { warnings.push('Recherche terrain (OpenStreetMap) momentanément indisponible — étude établie sur la seule base SIRENE (' + String(e && e.message || e).slice(0, 60) + ').'); return []; }),
     naf.length
       ? fromSirene(lat, lon, radiusKm, naf)
         .catch(e => { warnings.push('Base SIRENE indisponible — les chiffres financiers peuvent manquer.'); return []; })

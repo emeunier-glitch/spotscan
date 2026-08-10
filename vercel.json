@@ -1,7 +1,8 @@
 {
   "cleanUrls": true,
   "functions": {
-    "api/competitors.js": { "maxDuration": 40 },
+    "api/competitors.js": { "maxDuration": 50 },
+    "api/businesses.js": { "maxDuration": 50 },
     "api/insee.js": { "maxDuration": 25 }
   }
 }

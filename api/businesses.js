@@ -4,8 +4,11 @@
 
 const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter'
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
 ];
+// Overpass exige un User-Agent identifiable : sans lui, les serveurs publics rejettent la requête.
+const UA = 'SpotScan/1.0 (etude-implantation; +https://www.spotscan.fr)';
 
 // Enseignes qui structurent une zone commerciale (locomotives)
 const LOCO_SHOP = new Set(['supermarket', 'hypermarket', 'department_store', 'mall', 'doityourself',
@@ -31,22 +34,22 @@ export default async function handler(req, res) {
   if (!isFinite(lat) || !isFinite(lon)) { res.status(400).json({ error: 'Coordonnées manquantes' }); return; }
   const R = Math.round(radiusKm * 1000);
 
-  const q = `[out:json][timeout:25];(`
+  const q = `[out:json][timeout:20];(`
     + `nwr["shop"](around:${R},${lat},${lon});`
     + `nwr["office"](around:${R},${lat},${lon});`
     + `nwr["craft"](around:${R},${lat},${lon});`
     + `nwr["amenity"~"^(restaurant|fast_food|cafe|bar|pub|pharmacy|bank|fuel|cinema|driving_school|veterinary|dentist|doctors|post_office|marketplace)$"](around:${R},${lat},${lon});`
     + `nwr["leisure"~"^(fitness_centre|sports_centre|bowling_alley|golf_course)$"](around:${R},${lat},${lon});`
-    + `);out center 2500;`;
+    + `);out center 2000;`;
 
   let data = null, err = null;
   for (const ep of OVERPASS) {
     try {
       const c = new AbortController();
-      const t = setTimeout(() => c.abort(), 27000);
+      const t = setTimeout(() => c.abort(), 16000);
       const r = await fetch(ep, {
         method: 'POST', signal: c.signal,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', accept: 'application/json', 'User-Agent': UA },
         body: 'data=' + encodeURIComponent(q)
       });
       clearTimeout(t);
@@ -76,5 +79,5 @@ export default async function handler(req, res) {
     });
   }
 
-  res.status(200).json({ pts, byCat, total: pts.length, tronque: pts.length >= 2500 });
+  res.status(200).json({ pts, byCat, total: pts.length, tronque: pts.length >= 2000 });
 }
