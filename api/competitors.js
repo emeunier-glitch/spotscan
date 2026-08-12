@@ -3,7 +3,15 @@
 // 2) SIRENE (recherche-entreprises) : le filtre code APE + les chiffres (CA, résultat, création)
 // 3) Union + dédoublonnage des deux sources pour éliminer les oublis
 //
-// POST /api/competitors  { lat, lon, radiusKm, naf:["93.13Z",...], osm:["leisure=fitness_centre",...] }
+// POST /api/competitors  { lat, lon, radiusKm, naf:["93.13Z",...], osm:["leisure=fitness_centre",...],
+//                          nafWide:["93.29Z",...], kw:["fitness","ucpa",...] }
+//
+// nafWide = codes APE "élargis" (activités voisines qui hébergent souvent un vrai concurrent :
+// complexes de loisirs, centres sportifs...). Ils sont interrogés en plus des codes stricts,
+// mais un résultat issu du seul filet élargi n'est conservé que s'il est corroboré :
+//   - soit par un point terrain OpenStreetMap au même endroit (src = 'both'),
+//   - soit par un mot-clé sectoriel / une enseigne connue dans son nom (kw).
+// Sans cette double condition on ferait entrer tout le bowling et l'escape game du secteur.
 
 const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
@@ -88,7 +96,7 @@ async function fromOSM(lat, lon, radiusM, osmTags) {
 }
 
 /* ---------- 2. Chiffres : SIRENE par code APE ---------- */
-async function fromSirene(lat, lon, radiusKm, naf) {
+async function fromSirene(lat, lon, radiusKm, naf, wide) {
   const url = `${SIRENE}/near_point?lat=${lat}&long=${lon}&radius=${radiusKm.toFixed(1)}`
     + `&activite_principale=${naf.join(',')}&per_page=25`;
   const d = await jget(url, 12000);
@@ -108,7 +116,8 @@ async function fromSirene(lat, lon, radiusKm, naf) {
         lat: Number(e.latitude), lon: Number(e.longitude),
         ca: fin ? fin[1].ca : null, rn: fin ? fin[1].resultat_net : null, anF: fin ? fin[0] : null,
         ape: e.activite_principale || null,
-        src: 'sirene'
+        src: 'sirene',
+        wide: !!wide
       });
     }
   }
@@ -153,17 +162,25 @@ export default async function handler(req, res) {
   const radiusKm = Math.min(25, Math.max(0.5, Number(b.radiusKm) || 3));
   const naf = Array.isArray(b.naf) ? b.naf.filter(Boolean) : [];
   const osmTags = Array.isArray(b.osm) ? b.osm.filter(Boolean) : [];
+  const nafWide = (Array.isArray(b.nafWide) ? b.nafWide.filter(Boolean) : []).filter(c => !naf.includes(c));
+  const kw = (Array.isArray(b.kw) ? b.kw : []).map(k => norm(k)).filter(Boolean);
   if (!isFinite(lat) || !isFinite(lon)) { res.status(400).json({ error: 'Coordonnées manquantes' }); return; }
+  const kwHit = n => { const s = norm(n); return kw.some(k => s.includes(k)); };
 
   const warnings = [];
-  const [osmRes, sirRes] = await Promise.all([
+  const [osmRes, sirStrict, sirWide] = await Promise.all([
     fromOSM(lat, lon, Math.round(radiusKm * 1000), osmTags)
       .catch(e => { warnings.push('Recherche terrain (OpenStreetMap) momentanément indisponible — étude établie sur la seule base SIRENE (' + String(e && e.message || e).slice(0, 60) + ').'); return []; }),
     naf.length
-      ? fromSirene(lat, lon, radiusKm, naf)
+      ? fromSirene(lat, lon, radiusKm, naf, false)
         .catch(e => { warnings.push('Base SIRENE indisponible — les chiffres financiers peuvent manquer.'); return []; })
+      : Promise.resolve([]),
+    nafWide.length
+      ? fromSirene(lat, lon, radiusKm, nafWide, true).catch(() => [])
       : Promise.resolve([])
   ]);
+  // Le filet élargi passe après le filet strict : en cas de doublon, la fiche stricte gagne.
+  const sirRes = sirStrict.concat(sirWide);
 
   // Fusion : un point OSM et un établissement SIRENE proches (<150 m) ou de même nom = même commerce
   const used = new Set();
@@ -180,7 +197,8 @@ export default async function handler(req, res) {
     if (best >= 0) {
       used.add(best);
       const s = sirRes[best];
-      merged.push({ ...s, ens: p.ens || s.ens, adr: s.adr || p.adr, lat: p.lat, lon: p.lon, src: 'both' });
+      // corroboré par le terrain : la fiche est validée même si elle vient du filet élargi
+      merged.push({ ...s, ens: p.ens || s.ens, adr: s.adr || p.adr, lat: p.lat, lon: p.lon, src: 'both', wide: false });
     } else {
       merged.push(p);
     }
@@ -190,9 +208,13 @@ export default async function handler(req, res) {
   // Enrichissement des points terrain restés sans chiffres (limité pour tenir le temps de réponse)
   const toEnrich = merged.filter(m => m.src === 'osm').slice(0, 10);
   await Promise.all(toEnrich.map(async m => {
-    const info = await enrich(m, naf);
+    const info = await enrich(m, naf.concat(nafWide));
     if (info) Object.assign(m, info, { src: 'both' });
   }));
+
+  // Filet élargi : on ne garde que le corroboré (terrain ou enseigne/mot-clé sectoriel)
+  const kept = merged.filter(m => !m.wide || m.src === 'both' || kwHit(m.ens) || kwHit(m.soc));
+  merged.length = 0; merged.push(...kept);
 
   // Distance, tri, dédoublonnage
   for (const m of merged) m.dist = haversine([lat, lon], [m.lat, m.lon]);
@@ -206,6 +228,6 @@ export default async function handler(req, res) {
 
   res.status(200).json({
     comps, warnings,
-    stats: { terrain: osmRes.length, sirene: sirRes.length, retenus: comps.length }
+    stats: { terrain: osmRes.length, sirene: sirStrict.length, elargi: sirWide.length, retenus: comps.length }
   });
 }
