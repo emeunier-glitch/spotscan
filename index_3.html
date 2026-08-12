@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpotScan — L'étude d'implantation en 30 secondes</title>
+<meta name="description" content="Entrez une adresse : SpotScan génère la zone de chalandise, l'étude de marché complète et le business plan — données officielles INSEE, SIRENE, IGN.">
+<link rel="canonical" href="https://www.spotscan.fr/">
+<meta name="robots" content="index,follow">
+<meta property="og:title" content="SpotScan — L'étude d'implantation en 30 secondes">
+<meta property="og:description" content="Zone de chalandise réelle, concurrents avec leurs chiffres officiels et business plan 18 mois — à partir d'une simple adresse. 20 secteurs d'activité couverts.">
+<meta property="og:url" content="https://www.spotscan.fr/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="SpotScan">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"SpotScan",
+"url":"https://www.spotscan.fr/","applicationCategory":"BusinessApplication",
+"description":"Étude d'implantation commerciale automatisée : zone de chalandise isochrone, étude de marché, concurrence réelle (SIRENE) et business plan 18 mois pour 20 secteurs d'activité en France.",
+"inLanguage":"fr","operatingSystem":"Web",
+"offers":[{"@type":"Offer","name":"Zone de chalandise","price":"19","priceCurrency":"EUR"},
+{"@type":"Offer","name":"Étude de zone complète","price":"39","priceCurrency":"EUR"},
+{"@type":"Offer","name":"Business Plan 18 mois","price":"79","priceCurrency":"EUR"}]}
+</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --navy:#1F3A5F; --blue:#2E6EB5; --blue2:#4A8BD4; --light:#EAF1F8;
+    --green:#1E7A46; --amber:#B8860B; --red:#B23A3A;
+    --ink:#1c2733; --muted:#67788a; --line:#dbe3ec; --bg:#f4f7fb; --card:#ffffff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:var(--bg);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+  a{color:var(--blue);text-decoration:none}
+
+  header{background:var(--navy);color:#fff;position:sticky;top:0;z-index:1500}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:.3px}
+  .logo .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--blue2),var(--green));
+       display:inline-flex;align-items:center;justify-content:center;font-size:15px}
+  .beta{background:var(--amber);color:#fff;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:.4px}
+  header nav{display:flex;gap:22px;font-size:14px;opacity:.9}
+  header nav span{cursor:pointer}
+  .btn{cursor:pointer;border:none;border-radius:10px;font-weight:600;font-family:inherit;transition:.15s}
+  .btn-ghost{background:rgba(255,255,255,.14);color:#fff;padding:8px 16px;font-size:14px}
+  .btn-ghost:hover{background:rgba(255,255,255,.24)}
+
+  .hero{background:linear-gradient(180deg,var(--navy),#274a76);color:#fff;padding:48px 0 40px}
+  .hero h1{font-size:38px;line-height:1.12;font-weight:800;max-width:760px;letter-spacing:-.5px}
+  .hero p.sub{font-size:17px;opacity:.9;margin-top:14px;max-width:640px}
+  .hero .steps{display:flex;gap:18px;margin-top:20px;font-size:13.5px;opacity:.92;flex-wrap:wrap}
+  .hero .steps b{color:#bcd7f5}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 30px rgba(20,40,70,.08)}
+  .config{margin-top:-28px;position:relative;z-index:5;padding:26px}
+  .config h2{font-size:15px;color:var(--navy);font-weight:700;margin-bottom:4px}
+  .config .hint{font-size:13px;color:var(--muted);margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12.5px;font-weight:600;color:#42566b}
+  .field .desc{font-size:11px;color:var(--muted)}
+  select,input{font-family:inherit;font-size:14.5px;padding:11px 12px;border:1px solid var(--line);
+       border-radius:10px;background:#fff;color:var(--ink);width:100%}
+  select:focus,input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(46,110,181,.15)}
+  .col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-6{grid-column:span 6}.col-12{grid-column:span 12}
+  .autocomplete{position:relative}
+  .sugg{position:absolute;top:calc(100% - 4px);left:0;right:0;background:#fff;border:1px solid var(--line);
+       border-radius:0 0 10px 10px;z-index:200;max-height:220px;overflow:auto;box-shadow:0 12px 26px rgba(20,40,70,.14);display:none}
+  .sugg div{padding:10px 12px;font-size:13.5px;cursor:pointer}
+  .sugg div:hover{background:var(--light)}
+  .status{font-size:13px;color:var(--blue);font-weight:600;min-height:18px;margin-top:10px}
+  .warn-banner{background:#FDF3E0;border:1px solid #ecd9ac;color:#7a5b12;border-radius:10px;padding:10px 14px;font-size:13px;margin-top:12px;display:none}
+
+  .seg{display:flex;gap:8px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:70px;padding:10px;border:1px solid var(--line);background:#fff;border-radius:9px;
+       cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:600;color:#4a5a6b;transition:.15s}
+  .seg button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .seg button:disabled{opacity:.45;cursor:not-allowed}
+
+  .levels{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
+  .lvl{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:20px;cursor:pointer;
+       transition:.18s;position:relative;display:flex;flex-direction:column}
+  .lvl:hover{border-color:var(--blue);transform:translateY(-3px);box-shadow:0 12px 28px rgba(20,40,70,.12)}
+  .lvl .tag{font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.4px;text-transform:uppercase}
+  .lvl h3{font-size:19px;margin:8px 0 6px;color:var(--navy)}
+  .lvl .price{font-size:24px;font-weight:800;color:var(--ink)}
+  .lvl .price span{font-size:13px;font-weight:600;color:var(--muted)}
+  .lvl .price .free{color:var(--green);font-size:14px;font-weight:800}
+  .lvl ul{list-style:none;margin:14px 0 18px;display:flex;flex-direction:column;gap:8px}
+  .lvl li{font-size:13.5px;color:#41525f;display:flex;gap:8px;align-items:flex-start}
+  .lvl li .ck{color:var(--green);font-weight:800}
+  .lvl li.off{color:#b3bfca}.lvl li.off .ck{color:#cfd8e2}
+  .lvl .go{margin-top:auto;text-align:center;background:var(--light);color:var(--navy);font-weight:700;
+       padding:11px;border-radius:10px;font-size:14px}
+  .lvl.feature{border-color:var(--blue);box-shadow:0 12px 28px rgba(46,110,181,.16)}
+  .lvl .ribbon{position:absolute;top:-11px;right:16px;background:var(--amber);color:#fff;font-size:11px;
+       font-weight:700;padding:4px 10px;border-radius:20px}
+
+  section.block{padding:46px 0}
+  .block h2.title{font-size:26px;color:var(--navy);font-weight:800;text-align:center}
+  .block p.lead{text-align:center;color:var(--muted);margin-top:8px;max-width:640px;margin-left:auto;margin-right:auto}
+
+  #result{display:none}
+  .rhead{background:var(--navy);color:#fff;padding:22px 0}
+  .rhead .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .rhead h2{font-size:22px;font-weight:800}
+  .rhead .meta{font-size:13.5px;opacity:.85;margin-top:3px}
+  .rbadge{background:rgba(255,255,255,.15);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600}
+  .rbody{padding:26px 0 60px}
+  .rsection{margin-top:24px}
+  .rsection > h3{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--blue);font-weight:800;margin-bottom:12px;
+       display:flex;align-items:center;gap:10px}
+  .rsection > h3::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .tile{background:#fff;border:1px solid var(--line);border-radius:13px;padding:16px}
+  .tile .k{font-size:12px;color:var(--muted);font-weight:600}
+  .tile .v{font-size:24px;font-weight:800;color:var(--navy);margin-top:4px;line-height:1.1}
+  .tile .u{font-size:12px;color:var(--muted);font-weight:600}
+  .tile.good .v{color:var(--green)} .tile.warn .v{color:var(--red)}
+
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .cols2b{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+  .cardbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}
+  .cardbox h4{font-size:14.5px;color:var(--navy);margin-bottom:12px}
+  #lmap,#bmap{height:340px;border-radius:14px;border:1px solid var(--line);background:var(--light)}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px}
+  .bar-row .lab{width:130px;color:#4a5a6b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-track{flex:1;height:12px;background:var(--light);border-radius:6px;overflow:hidden}
+  .bar-fill{display:block;height:100%;background:var(--blue);border-radius:6px}
+  .bar-row .val{white-space:nowrap;text-align:right;font-weight:700;color:var(--navy);font-size:12.5px}
+
+  table.mini{width:100%;border-collapse:collapse;font-size:13.5px}
+  table.mini td{padding:8px 6px;border-bottom:1px solid var(--line)}
+  table.mini td:last-child{text-align:right;font-weight:700;color:var(--navy)}
+  table.mini tr:last-child td{border-bottom:none}
+
+  table.comp{width:100%;border-collapse:collapse;font-size:12.5px;min-width:820px}
+  table.comp th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#7a8699;
+       padding:8px 8px;border-bottom:2px solid var(--line)}
+  table.comp th:nth-child(n+3){text-align:right}
+  table.comp td{padding:9px 8px;border-bottom:1px solid var(--line)}
+  table.comp td:first-child{font-weight:700;color:var(--navy)}
+  table.comp td:nth-child(2){color:#4a5a6b}
+  table.comp td:nth-child(n+3){text-align:right;font-weight:600;color:var(--navy)}
+  td .soc{display:block;font-size:11px;color:var(--muted);font-weight:400}
+  .pos{color:var(--green)!important} .neg{color:var(--red)!important} .na{color:#9aa7b4!important;font-weight:400!important}
+  .comp-scroll{overflow-x:auto}
+  .apechip{display:inline-block;background:var(--navy);color:#fff;font-weight:700;font-size:12px;
+       padding:4px 10px;border-radius:7px;letter-spacing:.4px}
+  .cmp{display:inline-block;margin-top:7px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;line-height:1.35}
+  .cmp.good{background:#e4f2e9;color:var(--green)} .cmp.bad{background:#fbeaea;color:var(--red)}
+  .cmp.neu{background:var(--light);color:#56677a}
+  .srcchip{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}
+  .srcchip.ok{background:#e4f2e9;color:var(--green)} .srcchip.osm{background:#fdf3e0;color:var(--amber)}
+  .srcchip.sir{background:var(--light);color:var(--blue)}
+  .delc{border:1px solid var(--line);background:#fff;color:#9aa7b4;border-radius:7px;width:26px;height:26px;
+       cursor:pointer;font-size:12px;font-family:inherit;line-height:1;transition:.15s}
+  .delc:hover{border-color:var(--red);color:var(--red);background:#fdf0f0}
+  .renc{border:0;background:none;color:#b6c2cf;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
+  .renc:hover{color:var(--blue)}
+  .renin{width:100%;max-width:230px;font:inherit;font-size:13.5px;padding:4px 7px;
+    border:1px solid var(--blue);border-radius:6px;outline:none}
+  .excl-bar{background:var(--light);border:1px solid #cfe0f2;border-radius:10px;padding:10px 14px;
+       font-size:12.5px;color:#3a4b5c;margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .excl-bar button{border:none;background:var(--blue);color:#fff;border-radius:8px;padding:6px 12px;
+       font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
+
+  .struct-row{margin-bottom:12px}
+  .struct-top{display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:#3a4b5c;margin-bottom:4px}
+  .struct-pct{color:var(--navy);font-weight:800}
+  .struct-ex{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .refbox{background:linear-gradient(160deg,#f3f8ff,#eaf1f8);border-color:#cfe0f2}
+  .ref-name{font-size:20px;font-weight:800;color:var(--navy)}
+  .ref-note{font-size:12.5px;color:var(--muted);margin:2px 0 14px}
+  .ref-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .ref-k{font-size:11.5px;color:var(--muted);font-weight:600}
+  .ref-v{font-size:18px;font-weight:800;color:var(--navy);line-height:1.15}
+  .ref-extra{margin-top:14px;font-size:12.5px;color:#3a4b5c;border-top:1px solid #d6e3f1;padding-top:10px}
+
+  .swot{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .swot-card{border:1px solid var(--line);border-radius:13px;padding:16px 18px;background:#fff}
+  .swot-card h5{font-size:13px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px}
+  .swot-card ul{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .swot-card li{font-size:13px;color:#41525f;display:flex;gap:7px;align-items:flex-start}
+  .swot-card li::before{content:"•";font-weight:800}
+  .sw-f{border-top:3px solid var(--green)} .sw-f h5{color:var(--green)} .sw-f li::before{color:var(--green)}
+  .sw-w{border-top:3px solid var(--red)} .sw-w h5{color:var(--red)} .sw-w li::before{color:var(--red)}
+  .sw-o{border-top:3px solid var(--blue)} .sw-o h5{color:var(--blue)} .sw-o li::before{color:var(--blue)}
+  .sw-t{border-top:3px solid var(--amber)} .sw-t h5{color:var(--amber)} .sw-t li::before{color:var(--amber)}
+
+  .note{font-size:12px;color:var(--muted);margin-top:8px}
+  .estchip{display:inline-block;background:#fdf3e0;color:var(--amber);font-size:10.5px;font-weight:800;
+       padding:2px 8px;border-radius:6px;vertical-align:middle}
+
+  .locked-wrap{position:relative;margin-top:24px;overflow:hidden;border-radius:16px}
+  .locked-content{pointer-events:none;user-select:none}
+  .locked-content .v,.locked-content .val,.locked-content .bar-track,.locked-content svg,
+  .locked-content #lmap,.locked-content table.comp td,.locked-content table.mini td:last-child,
+  .locked-content .ref-v,.locked-content .struct-pct,.locked-content .swot-card ul{filter:blur(5px)}
+  .locked-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;
+       background:linear-gradient(180deg,rgba(244,247,251,.06),rgba(244,247,251,.46))}
+  .lock-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px 30px;text-align:center;
+       box-shadow:0 20px 55px rgba(20,40,70,.22);max-width:440px;position:sticky;top:80px}
+  .lock-ic{font-size:30px}
+  .lock-title{font-size:19px;font-weight:800;color:var(--navy);margin-top:6px}
+  .lock-title span{color:var(--blue)}
+  .lock-desc{font-size:13.5px;color:#56677a;margin:8px 0 16px;line-height:1.45}
+  .lock-cta{background:var(--green);color:#fff;border:none;border-radius:10px;padding:13px 26px;font-weight:700;
+       font-size:15px;cursor:pointer;font-family:inherit;transition:.15s}
+  .lock-cta:hover{background:#16603a}
+  .lock-note{font-size:11.5px;color:var(--muted);margin-top:10px}
+
+  .betabox{background:var(--light);border:1px dashed var(--blue);border-radius:12px;padding:15px;text-align:center;font-size:13.5px;margin-top:24px}
+  .betabox b{color:var(--navy)}
+  .print-btn{background:rgba(255,255,255,.14);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13.5px}
+
+  footer{background:var(--navy);color:#cdd8e6;padding:30px 0;font-size:13px}
+  footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .pill{display:inline-block;background:rgba(255,255,255,.1);padding:4px 10px;border-radius:20px;margin:3px 4px 0 0;font-size:12px}
+
+  @media(max-width:860px){
+    .levels{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,1fr)}
+    .cols2,.cols2b{grid-template-columns:1fr}.hero h1{font-size:30px}
+    .col-3,.col-4,.col-6{grid-column:span 12}.swot{grid-template-columns:1fr}
+  }
+  @media print{header,.hero,.config,#pricing,#how,.betabox,.print-btn,footer,.lock-card,.delc{display:none!important}
+    #result,#config-view{display:block!important}.locked-content *{filter:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ============ CONFIG VIEW ============ -->
+<div id="config-view">
+  <header>
+    <div class="wrap">
+      <div class="logo"><span class="mark">◎</span> SpotScan <span class="beta">BÊTA GRATUITE</span></div>
+      <nav>
+        <span onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'})">Tarifs</span>
+        <span onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">Comment ça marche</span>
+        <a href="/guides" style="color:#fff;opacity:.9">Guides métiers</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="wrap">
+      <h1>Scannez votre futur emplacement.</h1>
+      <p class="sub">Indiquez votre futur business et son adresse. SpotScan génère la zone de chalandise réelle, les concurrents (avec leurs chiffres officiels) et votre business plan — données INSEE, SIRENE et IGN.</p>
+      <div class="steps">
+        <div><b>1.</b> Votre projet &amp; votre adresse</div>
+        <div><b>2.</b> Le niveau d'analyse souhaité</div>
+        <div><b>3.</b> Votre rapport prêt à l'emploi</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="panel config">
+      <h2>Décrivez votre projet</h2>
+      <p class="hint">Le moteur adapte l'étude aux indicateurs officiels de votre secteur d'activité.</p>
+      <div class="grid">
+        <div class="field col-4">
+          <label>Votre futur business</label>
+          <select id="business" onchange="onBusinessChange()"></select>
+          <span class="desc" id="business-desc"></span>
+        </div>
+        <div class="field col-4 autocomplete">
+          <label>Adresse envisagée</label>
+          <input id="address" type="text" placeholder="ex : 12 rue de la République, Lyon" autocomplete="off">
+          <div class="sugg" id="sugg"></div>
+          <span class="desc">Choisissez une adresse dans la liste (Base Adresse Nationale).</span>
+        </div>
+        <div class="field col-4">
+          <label>Date d'ouverture prévue</label>
+          <input id="opendate" type="month" value="2026-11">
+          <span class="desc">Cale le prévisionnel sur les bons mois.</span>
+        </div>
+
+        <div class="field col-6">
+          <label>Zone de chalandise (temps d'accès)</label>
+          <div class="seg" id="seg-time">
+            <button data-t="5">5 min</button>
+            <button data-t="10" class="on">10 min</button>
+            <button data-t="15">15 min</button>
+            <button data-t="20">20 min</button>
+          </div>
+        </div>
+        <div class="field col-6">
+          <label>Mode d'accès <span style="font-weight:400;color:var(--muted)">(cumulables)</span></label>
+          <div class="seg" id="seg-mode">
+            <button data-m="car" class="on">🚗 Voiture</button>
+            <button data-m="pedestrian">🚶 À pied</button>
+            <button disabled title="Bientôt disponible">🚌 Transport (bientôt)</button>
+          </div>
+        </div>
+
+        <div class="field col-6 gym-only">
+          <label>Positionnement commercial</label>
+          <div class="seg" id="seg-pos">
+            <button data-p="low">Low-cost</button>
+            <button data-p="mid" class="on">Mid-market</button>
+            <button data-p="prem">Premium</button>
+          </div>
+        </div>
+        <div class="field col-6 biz-only">
+          <label>Surface envisagée (m²)</label>
+          <input id="surface" type="number" value="900" min="20" step="10">
+          <span class="desc">Détermine la capacité et l'investissement type.</span>
+        </div>
+      </div>
+
+      <div class="levels">
+        <div class="lvl" onclick="chooseLevel(1)">
+          <div class="ribbon">Offert en bêta</div>
+          <div class="tag">Niveau 1</div>
+          <h3>Zone de chalandise</h3>
+          <div class="price"><s style="color:#b3bfca;font-weight:600">19 €</s> <span class="free">GRATUIT</span></div>
+          <ul>
+            <li><span class="ck">✓</span> Zone isochrone réelle (IGN) sur carte</li>
+            <li><span class="ck">✓</span> Population &amp; communes (INSEE)</li>
+            <li class="off"><span class="ck">✓</span> Marché, flux &amp; concurrence réelle</li>
+            <li class="off"><span class="ck">✓</span> Business plan 18 mois</li>
+          </ul>
+          <div class="go">Générer la zone →</div>
+        </div>
+
+        <div class="lvl feature" onclick="chooseLevel(2)">
+          <div class="ribbon">Offert en bêta</div>
+          <div class="tag">Niveau 2</div>
+          <h3>Étude de zone complète</h3>
+          <div class="price"><s style="color:#b3bfca;font-weight:600">39 €</s> <span class="free">GRATUIT</span></div>
+          <ul>
+            <li><span class="ck">✓</span> Tout le niveau 1, plus :</li>
+            <li><span class="ck">✓</span> Marché national du secteur</li>
+            <li><span class="ck">✓</span> Concurrents réels : CA, résultat, création</li>
+            <li><span class="ck">✓</span> Potentiel de CA &amp; SWOT</li>
+          </ul>
+          <div class="go">Générer l'étude →</div>
+        </div>
+
+        <div class="lvl" onclick="chooseLevel(3)">
+          <div class="ribbon">Offert en bêta</div>
+          <div class="tag">Niveau 3</div>
+          <h3>Business Plan</h3>
+          <div class="price"><s style="color:#b3bfca;font-weight:600">79 €</s> <span class="free">GRATUIT</span></div>
+          <ul>
+            <li><span class="ck">✓</span> Tout le niveau 2, plus :</li>
+            <li><span class="ck">✓</span> Prévisionnel 18 mois (EBE, crédit)</li>
+            <li><span class="ck">✓</span> Besoin de financement &amp; point mort</li>
+            <li><span class="ck">✓</span> Impression PDF du rapport</li>
+          </ul>
+          <div class="go">Générer le BP →</div>
+        </div>
+      </div>
+
+      <div class="status" id="status"></div>
+      <div class="warn-banner" id="warn"></div>
+    </div>
+  </div>
+
+  <section class="block" id="how">
+    <div class="wrap">
+      <h2 class="title">Comment ça marche</h2>
+      <p class="lead">Un moteur unique, alimenté par les données publiques officielles, décliné pour 20 métiers.</p>
+      <div class="cols2" style="margin-top:26px">
+        <div class="cardbox"><h4>1 · Vous décrivez votre projet</h4>
+          <p style="font-size:14px;color:#4a5a6b">Business, adresse, surface, positionnement. Aucune compétence technique requise.</p></div>
+        <div class="cardbox"><h4>2 · Le moteur agrège les données officielles</h4>
+          <p style="font-size:14px;color:#4a5a6b">Isochrone (IGN), population par commune (INSEE), concurrents actifs avec finances publiées (SIRENE) — croisés avec les ratios de votre secteur.</p></div>
+        <div class="cardbox"><h4>3 · Vous recevez un rapport actionnable</h4>
+          <p style="font-size:14px;color:#4a5a6b">Zone, marché, concurrence chiffrée, potentiel de CA, prévisionnel — clair et prêt pour votre banque.</p></div>
+        <div class="cardbox"><h4>Le secret : une bibliothèque de ratios métier</h4>
+          <p style="font-size:14px;color:#4a5a6b">Chaque secteur a ses moyennes nationales (dépense/habitant, marges, investissement type). Le même moteur, décliné pour 20 activités.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="pricing" style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+    <div class="wrap">
+      <h2 class="title">Un rapport = un prix. Sans abonnement.</h2>
+      <p class="lead">Pendant la bêta, tout est offert. Ensuite : paiement à l'étude, avec packs dégressifs pour les pros (−35 % ×5, −50 % ×10).</p>
+      <div class="levels" style="margin-top:26px">
+        <div class="lvl"><div class="tag">Niveau 1</div><h3>Zone de chalandise</h3><div class="price">19 €<span> / rapport</span></div>
+          <ul><li><span class="ck">✓</span> La zone réelle et sa population</li></ul><div class="go">Bêta : offert</div></div>
+        <div class="lvl feature"><div class="ribbon">Populaire</div><div class="tag">Niveau 2</div><h3>Étude complète</h3><div class="price">39 €<span> / rapport</span></div>
+          <ul><li><span class="ck">✓</span> Marché, concurrence chiffrée, potentiel</li></ul><div class="go">Bêta : offert</div></div>
+        <div class="lvl"><div class="tag">Niveau 3</div><h3>Business Plan</h3><div class="price">79 €<span> / rapport</span></div>
+          <ul><li><span class="ck">✓</span> Prévisionnel 18 mois + PDF</li></ul><div class="go">Bêta : offert</div></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============ RESULT VIEW ============ -->
+<div id="result">
+  <div class="rhead">
+    <div class="wrap">
+      <div>
+        <h2 id="r-title">Étude d'implantation</h2>
+        <div class="meta" id="r-meta">—</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="rbadge" id="r-badge">Niveau 2</span>
+        <button class="print-btn" onclick="window.print()">🖨️ PDF</button>
+        <button class="btn btn-ghost" onclick="backHome()">← Nouvelle étude</button>
+      </div>
+    </div>
+  </div>
+  <div class="rbody">
+    <div class="wrap" id="r-content"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="logo" style="font-size:16px;margin-bottom:8px"><span class="mark">◎</span> SpotScan</div>
+      <div>L'étude d'implantation en 30 secondes — bêta gratuite.</div>
+      <div style="margin-top:8px"><a href="/guides" style="color:#bcd7f5">📚 Guides métiers : ouvrir un commerce</a></div>
+    </div>
+    <div style="max-width:560px">
+      <div style="margin-bottom:6px;color:#fff;font-weight:600">Sources de données</div>
+      <span class="pill">BAN — adresses</span>
+      <span class="pill">IGN — isochrones</span>
+      <span class="pill">INSEE / geo.api.gouv.fr — population</span>
+      <span class="pill">SIRENE — entreprises &amp; finances</span>
+      <span class="pill">Ratios sectoriels</span>
+      <p class="note" style="color:#9fb0c4;margin-top:10px">Estimations indicatives fondées sur données publiques et moyennes sectorielles — ne constitue pas un conseil en investissement. © SpotScan 2026.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ================= BIBLIOTHÈQUE SECTORIELLE ================= */
+const SECTORS = {
+  gym:{label:'Salle de sport',icon:'🏋️',naf:['93.13Z','93.11Z'],elast:1.0,
+    osm:['leisure=fitness_centre','leisure=sports_centre','sport=fitness'],
+    nafWide:['93.29Z','93.12Z','93.19Z','93.04Z','85.51Z'],
+    kw:['fitness','gym','musculation','muscu','remise en forme','forme','wellness','crossfit','cross fit',
+        'sport','training','coaching','basic fit','fitness park','keep cool','orange bleue','appart',
+        'neoness','on air','vita liberte','magic form','curves','ucpa','aquatique','piscine','escalade'],
+    apeLabel:'APE 9313Z + 9311Z',refM2:900,caM2:450,
+    depHab:42,margeExploit:0.24,invest:350000,hasGym:true,penetration:0.10,
+    market:{title:'Le marché du fitness en France',taille:'≈ 2,5 Md€',etabl:'≈ 5 900 salles',croissance:'+3 %/an',extra:['Adhérents','≈ 7 M (10 %)'],
+      intro:'Marché dynamique porté par le low-cost et les studios spécialisés ; 60 % des salles sous enseigne.',
+      structure:[['Low-cost',45,'Basic-Fit, Fitness Park, Neoness'],['Milieu de gamme',30,'Keep Cool, L\'Orange Bleue, L\'Appart'],['Premium / boutique',15,'CrossFit, biking, yoga'],['Haut de gamme',10,'Clubs premium']]},
+    ref:{name:'Basic-Fit',note:'Leader européen du fitness low-cost.',ca:'1,42 Md€ (2025)',croissance:'+16,9 %',marge:'≈ 1,0 % (net)',sal:'≈ 6 500',extra:'≈ 4,7 M adhérents · ~1 600 clubs'}},
+  resto:{label:'Restaurant',icon:'🍽️',naf:['56.10A'],elast:1.1,nafWide:['56.10C','56.30Z','55.10Z','56.21Z','56.29B'],kw:['restaurant','resto','brasserie','bistrot','bistro','auberge','taverne','pizzeria','trattoria','grill','rotisserie','creperie','sushi','wok','cuisine','gastronomi','table','traiteur','buffet'],osm:['amenity=restaurant'],apeLabel:'APE 5610A',refM2:120,caM2:3500,depHab:600,margeExploit:0.14,invest:250000,
+    market:{title:'Le marché de la restauration en France',taille:'≈ 128 Md€',etabl:'≈ 180 000 entreprises',croissance:'+4 %/an (prix)',extra:['Ticket moyen','≈ 23 €'],
+      intro:'Croissance tirée par les prix ; la restauration rapide capte ~60 % des repas.',
+      structure:[['Service à table',41,'Indépendants, brasseries'],['Rapide / comptoir',59,'Chaînes']]},
+    ref:{name:'Buffalo Grill',note:'Leader de la restauration à table (données Pappers).',ca:'364 M€',croissance:'+',marge:'13,3 % (RN 48,3 M€)',sal:'2 000–4 999',extra:'~360 restaurants'}},
+  fastfood:{label:'Restauration rapide',icon:'🍔',naf:['56.10C'],elast:0.6,nafWide:['56.10A','56.10B','56.30Z','47.81Z'],kw:['burger','kebab','tacos','pizza','pizzeria','sushi','snack','sandwich','wrap','poke','bagel','fast food','friterie','grill','mcdonald','kfc','burger king','quick','subway','five guys','domino','croissanterie','food truck','street food','panini'],osm:['amenity=fast_food','amenity=food_court'],apeLabel:'APE 5610C',refM2:80,caM2:6000,depHab:350,margeExploit:0.12,invest:300000,
+    market:{title:'La restauration rapide en France',taille:'≈ 45 Md€',etabl:'≈ 40 000',croissance:'+5 %/an',extra:['Part des repas','~60 %'],
+      intro:'Segment le plus dynamique, tiré par les chaînes et la livraison.',
+      structure:[['Chaînes burgers',40,'McDo, Burger King, KFC'],['Sandwich / tacos',30,'Subway, O\'Tacos'],['Indépendants',30,'—']]},
+    ref:{name:'McDonald\'s France',note:'Leader de la restauration rapide.',ca:'≈ 6,5 Md€',croissance:'+',marge:'n.c.',sal:'≈ 75 000',extra:'≈ 1 560 restaurants'}},
+  cafetabac:{label:'Café / tabac',icon:'☕',naf:['56.30Z','47.26Z'],elast:0.15,nafWide:['56.10A','47.62Z','92.00Z','47.11B'],kw:['tabac','bar','pmu','fdj','loto','presse','civette','comptoir','taverne','pub','estaminet','brasserie','cafe','buraliste','le balto','rendez vous'],osm:['amenity=cafe','shop=tobacco','amenity=bar','amenity=pub','shop=newsagent'],apeLabel:'APE 5630Z + 4726Z',refM2:80,caM2:5500,depHab:200,margeExploit:0.10,invest:200000,
+    market:{title:'Les cafés-tabac en France',taille:'réseau ~23 000 buralistes',etabl:'≈ 23 000',croissance:'stable',extra:['Diversification','FDJ, PMU, colis'],
+      intro:'Réseau de proximité en mutation : diversification pour compenser la baisse du tabac.',
+      structure:[['Café-tabac-presse',60,'—'],['Bar-tabac-PMU',30,'—'],['Tabac seul',10,'—']]},
+    ref:{name:'Relay Tabac',note:'Plus gros acteur tabac de France par CA (données Pappers).',ca:'152 M€',croissance:'+',marge:'7,1 % (RN 10,8 M€)',sal:'20–49',extra:'Gares & aéroports (Lagardère)'}},
+  boul:{label:'Boulangerie',icon:'🥖',naf:['10.71C','10.71D'],elast:0.35,nafWide:['47.24Z','10.71A','56.10C'],kw:['boulangerie','boulanger','patisserie','patissier','fournil','pain','mie','epi','ble','levain','croissant','brioche','banette','feuillette','marie blachere','ange','sophie lebreuil','gourmandise','viennoiserie'],osm:['shop=bakery','shop=pastry'],apeLabel:'APE 1071C/D',refM2:80,caM2:4000,depHab:140,margeExploit:0.15,invest:200000,
+    market:{title:'La boulangerie en France',taille:'≈ 13–15 Md€',etabl:'≈ 35 000',croissance:'+4 %/an',extra:['Densité','1 / ~1 900 hab'],
+      intro:'Marché de proximité très atomisé : 97 % d\'indépendants, mais les réseaux surperforment.',
+      structure:[['Artisanales',80,'—'],['Réseaux',12,'Marie Blachère, Ange, Paul'],['Terminaux / GMS',8,'—']]},
+    ref:{name:'Marie Blachère',note:'Leader de la boulangerie de réseau.',ca:'≈ 1,1 Md€',croissance:'2 chiffres',marge:'n.c.',sal:'≈ 11 000',extra:'≈ 900 boulangeries'}},
+  boucherie:{label:'Boucherie',icon:'🥩',naf:['47.22Z'],elast:0.5,nafWide:['10.13B','10.11Z','47.29Z','47.81Z'],kw:['boucherie','boucher','charcuterie','charcutier','traiteur','viande','volaille','grillade','rotisserie','boeuf','porc','halle','carne','saveurs'],osm:['shop=butcher','shop=deli'],apeLabel:'APE 4722Z',refM2:60,caM2:5000,depHab:130,margeExploit:0.10,invest:150000,
+    market:{title:'La boucherie en France',taille:'≈ 8 Md€',etabl:'≈ 18 000',croissance:'stable',extra:['Tendance','premium & local'],
+      intro:'Marché artisanal de proximité, valorisé par le local et le haut de gamme.',
+      structure:[['Artisanales',85,'—'],['Réseaux',10,'Boucheries André'],['Rayon GMS',5,'—']]},
+    ref:{name:'Boucheries André',note:'Plus grosse chaîne de boucheries de proximité (données Pappers).',ca:'46,9 M€',croissance:'+',marge:'3,2 % (RN 1,5 M€)',sal:'100–199',extra:'Chaîne de proximité'}},
+  caviste:{label:'Caviste',icon:'🍷',naf:['47.25Z'],elast:1.3,nafWide:['46.34Z','11.02A','11.02B','47.29Z','47.99A'],kw:['cave','caviste','vin','vins','vinotheque','oenotheque','nicolas','bacchus','biere','brasserie','spiritueux','whisky','champagne','domaine','chai','cellier','v and b','millesime'],osm:['shop=wine','shop=alcohol','shop=beverages'],apeLabel:'APE 4725Z',refM2:60,caM2:4500,depHab:40,margeExploit:0.10,invest:90000,
+    market:{title:'Les cavistes en France',taille:'≈ 4 Md€',etabl:'≈ 6 000',croissance:'+3 %/an',extra:['Sous enseigne','~40 %'],
+      intro:'Croissance portée par la premiumisation et les concepts cave + bar.',
+      structure:[['Indépendants',60,'—'],['Franchises',30,'Nicolas, Cavavin, V and B'],['Cave + bar',10,'V and B']]},
+    ref:{name:'Éts Nicolas',note:'Réseau historique de cavistes (données Pappers).',ca:'241 M€',croissance:'stable',marge:'3,8 % (RN 9,3 M€)',sal:'500–999',extra:'~500 magasins'}},
+  coif:{label:'Salon de coiffure',icon:'✂️',naf:['96.02A'],elast:0.6,nafWide:['96.02B','96.09Z','96.04Z'],kw:['coiffure','coiffeur','coiffeuse','barbier','barber','hair','salon','ciseaux','camille albane','jean louis david','franck provost','tchip','saint algue','dessange','coupe','chevelure','shampoo'],osm:['shop=hairdresser'],apeLabel:'APE 9602A',refM2:60,caM2:2200,depHab:95,margeExploit:0.16,invest:80000,
+    market:{title:'La coiffure en France',taille:'≈ 7,1 Md€',etabl:'≈ 100 000',croissance:'+2 %/an',extra:['À domicile','~27 %'],
+      intro:'Secteur dominé par les indépendants ; les grands groupes captent ~1/3 du marché.',
+      structure:[['Indépendants',62,'—'],['Franchises',20,'Provalliance, VOG, Pascal Coste'],['À domicile',18,'—']]},
+    ref:{name:'Provalliance',note:'Leader mondial de la coiffure (données Pappers).',ca:'n.c. (tête de réseau)',croissance:'+',marge:'RN 23,4 M€ (2024)',sal:'réseau ~3 500 salons',extra:'Franck Provost, Dessange…'}},
+  pharma:{label:'Pharmacie',icon:'💊',naf:['47.73Z'],elast:0.15,nafWide:['47.74Z','47.75Z'],kw:['pharmacie','pharmacien','parapharmacie','officine'],osm:['amenity=pharmacy','healthcare=pharmacy'],apeLabel:'APE 4773Z',refM2:150,caM2:9000,depHab:560,margeExploit:0.09,invest:600000,
+    market:{title:'La pharmacie en France',taille:'≈ 63 Md€',etabl:'≈ 20 000 officines',croissance:'+2 %/an',extra:['Densité','1 / ~3 000 hab'],
+      intro:'Marché réglementé de proximité ; montée des groupements et grandes officines.',
+      structure:[['Indépendantes',55,'—'],['Groupements',35,'Giphar, Pharmabest'],['Grandes officines',10,'Lafayette, Aprium']]},
+    ref:{name:'Groupe Giphar',note:'Groupement : référence = officine moyenne.',ca:'n.c.',croissance:'+',marge:'n.c.',sal:'n.c.',extra:'~2 900 pharmacies adhérentes'}},
+  optic:{label:'Opticien',icon:'👓',naf:['47.78A'],elast:0.5,nafWide:['47.74Z','47.78C','32.50A'],kw:['optic','optique','opticien','lunette','lunetterie','vision','krys','afflelou','optical center','grand optical','generale d optique','ecouter voir','atol','audition','regard'],osm:['shop=optician'],apeLabel:'APE 4778A',refM2:80,caM2:5500,depHab:110,margeExploit:0.12,invest:150000,
+    market:{title:'L\'optique en France',taille:'≈ 7,5 Md€',etabl:'≈ 12 500',croissance:'+2 %/an',extra:['Sous enseigne','~75 %'],
+      intro:'Marché dense dominé par les réseaux ; pression du 100 % Santé.',
+      structure:[['Réseaux',75,'Krys, Optic 2000, Afflelou'],['Indépendants',20,'—'],['Low-cost / web',5,'—']]},
+    ref:{name:'Krys Group',note:'Leader français de l\'optique.',ca:'≈ 1,4 Md€ (réseau)',croissance:'+',marge:'n.c.',sal:'n.c.',extra:'~1 500 magasins'}},
+  parfumerie:{label:'Parfumerie',icon:'💄',naf:['47.75Z'],elast:1.2,nafWide:['47.74Z','96.02B','47.78C','47.19B'],kw:['parfum','parfumerie','beaute','cosmetique','institut','esthetique','marionnaud','nocibe','sephora','yves rocher','douglas','body shop','lush','soin','onglerie'],osm:['shop=perfumery','shop=cosmetics','shop=beauty'],apeLabel:'APE 4775Z',refM2:100,caM2:6500,depHab:90,margeExploit:0.10,invest:250000,
+    market:{title:'La parfumerie en France',taille:'≈ 5 Md€',etabl:'≈ 3 500',croissance:'+3 %/an',extra:['Sous enseigne','majoritaire'],
+      intro:'Marché dominé par les chaînes ; premiumisation et e-commerce beauté.',
+      structure:[['Chaînes',80,'Sephora, Marionnaud, Nocibé'],['Indépendants',20,'—']]},
+    ref:{name:'Sephora France',note:'Leader de la parfumerie sélective (données Pappers).',ca:'2,68 Md€',croissance:'+',marge:'12,8 % (RN 341 M€)',sal:'5 000–9 999',extra:'~330 magasins'}},
+  pap:{label:'Magasin de vêtements',icon:'👗',naf:['47.71Z'],elast:0.9,nafWide:['47.72A','47.79Z','47.82Z','47.19B','47.91B'],kw:['mode','vetement','pret a porter','boutique','fashion','dressing','friperie','jean','chemise','robe','kiabi','zara','celio','jules','camaieu','promod','gemo','la halle','armand thiery','devred','pimkie','mango','cache cache'],osm:['shop=clothes','shop=boutique'],apeLabel:'APE 4771Z',refM2:120,caM2:3000,depHab:480,margeExploit:0.08,invest:150000,
+    market:{title:'L\'habillement en France',taille:'≈ 28 Md€',etabl:'≈ 35 000',croissance:'-1 %/an',extra:['E-commerce','~25 %'],
+      intro:'Marché mature sous pression du e-commerce et de la seconde main.',
+      structure:[['Chaînes',60,'Zara, H&M, Kiabi'],['Indépendants',25,'—'],['Luxe / premium',15,'—']]},
+    ref:{name:'Kiabi',note:'Leader français de la mode à petit prix.',ca:'≈ 2 Md€',croissance:'+',marge:'n.c.',sal:'~10 000',extra:'~570 magasins (France)'}},
+  sportwear:{label:'Magasin de sport',icon:'🏃',naf:['47.64Z'],elast:1.0,nafWide:['47.71Z','47.72A','47.19B'],kw:['sport','decathlon','intersport','go sport','sport 2000','courir','foot locker','jd sports','running','outdoor','montagne','ski','randonnee','athlete','snowleader','endurance'],osm:['shop=sports','shop=outdoor','shop=ski'],apeLabel:'APE 4764Z',refM2:400,caM2:3200,depHab:130,margeExploit:0.09,invest:250000,
+    market:{title:'Les articles de sport en France',taille:'≈ 12 Md€',etabl:'≈ 5 000',croissance:'+3 %/an',extra:['Leader','Decathlon ~50 % PDM'],
+      intro:'Marché dominé par Decathlon ; running et outdoor porteurs.',
+      structure:[['Grandes surfaces',70,'Decathlon, Intersport'],['Chaînes spécialisées',20,'Courir, Foot Locker'],['Indépendants',10,'—']]},
+    ref:{name:'Decathlon',note:'Leader mondial des articles de sport.',ca:'≈ 15,6 Md€ (monde)',croissance:'+',marge:'n.c.',sal:'~100 000',extra:'~1 700 magasins (monde)'}},
+  velo:{label:'Magasin de vélo',icon:'🚲',naf:['47.64Z'],elast:1.2,nafWide:['45.40Z','95.29Z','30.92Z'],kw:['velo','cycle','cycles','bike','bicycle','vtt','trottinette','culture velo','cyclable','veloland','mondovelo','bouticycle','cyclo','giant','specialized','roue libre'],osm:['shop=bicycle'],apeLabel:'APE 4764Z',refM2:150,caM2:3800,depHab:35,margeExploit:0.10,invest:180000,
+    market:{title:'Le vélo en France',taille:'≈ 3,5 Md€',etabl:'≈ 2 500',croissance:'+5 %/an',extra:['Moteur','vélo électrique'],
+      intro:'Marché tiré par le VAE et les mobilités douces.',
+      structure:[['Spécialistes',55,'Culture Vélo, Cyclable'],['Grandes surfaces',30,'Decathlon'],['En ligne',15,'Alltricks']]},
+    ref:{name:'Culture Vélo — moyenne franchisés',note:'Franchise : référence = moyenne des magasins (données Pappers).',ca:'≈ 769 k€ / magasin',croissance:'+ (VAE)',marge:'≈ −1 %',sal:'3–9 / magasin',extra:'CA médian 785 k€ · RN médian +1 k€'}},
+  immo:{label:'Agence immobilière',icon:'🏠',naf:['68.31Z'],elast:1.2,nafWide:['68.20A','68.20B','68.32A','66.19A'],kw:['immobilier','immo','agence','orpi','century','laforet','guy hoquet','foncia','nexity','era','iad','safti','stephane plaza','human immobilier','square habitat','citya','sergic','l adresse','arthurimmo','transaction','patrimoine','habitat'],osm:['office=estate_agent'],apeLabel:'APE 6831Z',refM2:50,caM2:4500,depHab:60,margeExploit:0.15,invest:60000,
+    market:{title:'Les agences immobilières en France',taille:'≈ 18 Md€ (honoraires)',etabl:'≈ 35 000',croissance:'cyclique',extra:['Sous enseigne','~55 %'],
+      intro:'Marché cyclique ; réseaux dominants, montée des mandataires.',
+      structure:[['Réseaux',55,'Orpi, Century 21, Laforêt'],['Indépendants',25,'—'],['Mandataires',20,'iad, Capifrance']]},
+    ref:{name:'Orpi France',note:'Premier réseau coopératif (données Pappers).',ca:'38,4 M€ (tête de réseau)',croissance:'cyclique',marge:'RN 1,5 M€',sal:'50–99',extra:'~1 350 agences'}},
+  padel:{label:'Padel',icon:'🎾',naf:['93.11Z'],elast:1.2,nafWide:['93.13Z','93.12Z','93.29Z','93.19Z','85.51Z'],kw:['padel','tennis','squash','raquette','racket','4padel','casa padel','urban padel','all in padel','country club','complexe sportif','tennis club'],osm:['sport=padel','leisure=sports_centre','sport=tennis'],apeLabel:'APE 9311Z',refM2:2000,caM2:250,depHab:10,margeExploit:0.20,invest:600000,
+    market:{title:'Le padel en France',taille:'≈ 0,3 Md€',etabl:'≈ 700 clubs',croissance:'+30 %/an',extra:['Dynamique','explosive'],
+      intro:'Croissance explosive ; marché peu structuré — fenêtre d\'opportunité.',
+      structure:[['Clubs dédiés',50,'4Padel, All In'],['Multisports',50,'—']]},
+    ref:{name:'4Padel — moyenne clubs',note:'Franchise : référence = moyenne des clubs (données Pappers).',ca:'≈ 1,0 M€ / club',croissance:'forte',marge:'variable',sal:'6–9 / club',extra:'Strasbourg +73 k€ · Reims −81 k€'}},
+  footindoor:{label:'Foot indoor',icon:'⚽',naf:['93.11Z'],elast:0.9,nafWide:['93.12Z','93.13Z','93.29Z','93.19Z','85.51Z'],kw:['foot','football','five','soccer','futsal','urban soccer','le five','indoor','complexe sportif','city stade','arena'],osm:['leisure=sports_centre'],apeLabel:'APE 9311Z',refM2:2500,caM2:200,depHab:9,margeExploit:0.15,invest:500000,
+    market:{title:'Le foot indoor en France',taille:'≈ 0,2 Md€',etabl:'≈ 300 centres',croissance:'+4 %/an',extra:['Format','5v5 urbain'],
+      intro:'Loisir urbain mature ; diversification vers padel et multisports.',
+      structure:[['Enseignes',55,'Le Five, UrbanSoccer'],['Indépendants',45,'—']]},
+    ref:{name:'Le Five (Soccer 5 France)',note:'Parmi les leaders (données Pappers).',ca:'14,0 M€',croissance:'+',marge:'RN 7,2 M€ (2025)',sal:'50–99',extra:'UrbanSoccer ~5,6 M€'}},
+  bowling:{label:'Bowling',icon:'🎳',naf:['93.29Z'],elast:0.8,nafWide:['93.11Z','93.13Z','93.19Z','93.21Z'],kw:['bowling','quilles','strike','laser','laser game','escape','billard','arcade','karting','fun','loisir','park','jeux','trampoline'],osm:['leisure=bowling_alley','leisure=amusement_arcade'],apeLabel:'APE 9329Z',refM2:1500,caM2:600,depHab:12,margeExploit:0.18,invest:900000,
+    market:{title:'Le bowling en France',taille:'≈ 0,4 Md€',etabl:'≈ 500',croissance:'+2 %/an',extra:['Tendance','multi-loisirs'],
+      intro:'Loisir familial intégré à des complexes multi-activités.',
+      structure:[['Complexes multi-loisirs',60,'—'],['Indépendants',40,'—']]},
+    ref:{name:'Speed Park — franchisés',note:'Réseau : référence = moyenne des sites (données Pappers).',ca:'n.c.',croissance:'+',marge:'RN ≈ 0,3–0,7 M€ / site',sal:'10–19 / site',extra:'Vannes +719 k€ · Le Mans +280 k€'}},
+  karting:{label:'Karting',icon:'🏎️',naf:['93.29Z'],elast:1.0,nafWide:['93.11Z','93.19Z','93.21Z','77.21Z'],kw:['karting','kart','circuit','racing','speed','pilotage','drift','simulateur','laser','loisir','fun'],osm:['sport=karting','leisure=sports_centre'],apeLabel:'APE 9329Z',refM2:3000,caM2:300,depHab:8,margeExploit:0.16,invest:700000,
+    market:{title:'Le karting de loisir en France',taille:'≈ 0,2 Md€',etabl:'≈ 300 pistes',croissance:'+3 %/an',extra:['Format','indoor en hausse'],
+      intro:'Porté par les pistes indoor urbaines et les offres entreprises.',
+      structure:[['Indoor',55,'—'],['Outdoor',45,'—']]},
+    ref:{name:'Speed Park — franchisés',note:'Réseau : référence = moyenne des sites (données Pappers).',ca:'n.c.',croissance:'+',marge:'RN ≈ 0,3–0,7 M€ / site',sal:'10–19 / site',extra:'Vannes +719 k€ · Le Mans +280 k€'}},
+  golfindoor:{label:'Golf indoor',icon:'⛳',naf:['93.11Z'],elast:1.4,nafWide:['93.13Z','93.12Z','93.19Z','93.29Z','85.51Z'],kw:['golf','swing','practice','putting','driving range','simulateur','indoor','birdie'],osm:['leisure=golf_course','sport=golf'],apeLabel:'APE 9311Z',refM2:400,caM2:900,depHab:6,margeExploit:0.20,invest:400000,
+    market:{title:'Le golf indoor en France',taille:'niche en croissance',etabl:'≈ 150 centres',croissance:'+10 %/an',extra:['Cible','urbaine'],
+      intro:'Niche émergente : simulateurs démocratisant le golf en ville.',
+      structure:[['Studios simulateurs',60,'—'],['Practices couverts',40,'—']]},
+    ref:{name:'—',note:'Marché émergent, pas de leader national établi.',ca:'n.c.',croissance:'+',marge:'n.c.',sal:'n.c.',extra:'—'}},
+};
+const POS={low:{ab:22,dens:3.0,lab:'Low-cost'},mid:{ab:35,dens:2.0,lab:'Mid-market'},prem:{ab:65,dens:1.2,lab:'Premium'}};
+const GYM_BRANDS={'basic':['Low-cost','20–30 €/mois'],'fitness park':['Low-cost','≈ 30 €/mois'],'appart':['Premium','40–70 €/mois'],
+  'keep':['Milieu de gamme','≈ 40 €/mois'],'orange bleue':['Milieu de gamme','≈ 35 €/mois'],'neoness':['Low-cost','20–30 €/mois'],
+  'on air':['Premium','50–80 €/mois'],'wellness':['Premium','60–120 €/mois']};
+
+/* ================= ÉTAT & CONFIG ================= */
+const state={business:'zone',time:10,modes:['car'],pos:'mid',surface:900,addr:null,level:1,data:null,dataKey:'',excluded:new Set(),renamed:{}};
+const modeLabel=()=>state.modes.length>1?'voiture + piéton':(state.modes[0]==='car'?'en voiture':'à pied');
+const sel=document.getElementById('business');
+{const o=document.createElement('option');o.value='zone';o.textContent='🗺️ Zone de chalandise seule (sans business)';sel.appendChild(o);}
+for(const [k,s] of Object.entries(SECTORS)){const o=document.createElement('option');o.value=k;o.textContent=`${s.icon} ${s.label}`;sel.appendChild(o);}
+function onBusinessChange(){state.business=sel.value;
+  if(state.business==='zone'){
+    document.querySelectorAll('.gym-only').forEach(el=>el.style.display='none');
+    document.querySelectorAll('.biz-only').forEach(el=>el.style.display='none');
+    document.getElementById('business-desc').textContent='Étude libre d\'une zone : population, communes, superficie, indice de flux — sans hypothèses métier.';
+    return;}
+  const s=SECTORS[state.business];
+  document.querySelectorAll('.biz-only').forEach(el=>el.style.display='flex');
+  document.querySelectorAll('.gym-only').forEach(el=>el.style.display=s.hasGym?'flex':'none');
+  state.surface=s.refM2;document.getElementById('surface').value=s.refM2;
+  document.getElementById('business-desc').textContent=`${s.market.intro} · concurrence via ${s.apeLabel}`;}
+onBusinessChange();
+document.getElementById('surface').oninput=e=>state.surface=Number(e.target.value)||SECTORS[state.business].refM2;
+document.querySelectorAll('#seg-time button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#seg-time button').forEach(x=>x.classList.remove('on'));b.classList.add('on');state.time=Number(b.dataset.t);});
+document.querySelectorAll('#seg-mode button[data-m]').forEach(b=>b.onclick=()=>{
+  const m=b.dataset.m;
+  if(b.classList.contains('on')){
+    if(state.modes.length>1){b.classList.remove('on');state.modes=state.modes.filter(x=>x!==m);}
+  }else{b.classList.add('on');state.modes=[...state.modes,m];}
+});
+document.querySelectorAll('#seg-pos button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#seg-pos button').forEach(x=>x.classList.remove('on'));b.classList.add('on');state.pos=b.dataset.p;});
+
+/* ================= HELPERS ================= */
+const fmt=n=>Math.round(n).toLocaleString('fr-FR');
+const dec=(n,d=1)=>Number(n).toFixed(d).replace('.',',');
+const keur=n=>(n/1000).toLocaleString('fr-FR',{maximumFractionDigits:0})+' k€';
+const meur=n=>(n/1e6).toLocaleString('fr-FR',{maximumFractionDigits:1})+' M€';
+const money=n=>Math.abs(n)>=1e6?meur(n):keur(n);
+const pct=n=>(n*100).toLocaleString('fr-FR',{maximumFractionDigits:1})+' %';
+const setStatus=t=>document.getElementById('status').textContent=t;
+function warn(t){const w=document.getElementById('warn');w.style.display='block';w.innerHTML='⚠️ '+t;}
+function haversine(a,b){const R=6371,dLa=(b[0]-a[0])*Math.PI/180,dLo=(b[1]-a[1])*Math.PI/180;
+  const x=Math.sin(dLa/2)**2+Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));}
+function pip(pt,poly){let ins=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+  if(((yi>pt[1])!==(yj>pt[1]))&&(pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi)+xi))ins=!ins;}return ins;}
+function polyAreaKm2(poly){let a=0;const R=6371;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i][1]*Math.PI/180,yi=poly[i][0]*Math.PI/180,xj=poly[j][1]*Math.PI/180,yj=poly[j][0]*Math.PI/180;
+    a+=(xj-xi)*(2+Math.sin(yi)+Math.sin(yj));}
+  return Math.abs(a*R*R/2);}
+async function jget(url,timeout=12000){const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);
+  const r=await fetch(url,{signal:c.signal});clearTimeout(t);if(!r.ok)throw new Error(r.status);return r.json();}
+
+/* ================= AUTOCOMPLÉTION BAN ================= */
+const addrInput=document.getElementById('address'),sugg=document.getElementById('sugg');
+let deb=null;
+addrInput.oninput=()=>{state.addr=null;clearTimeout(deb);
+  const q=addrInput.value.trim();if(q.length<4){sugg.style.display='none';return;}
+  deb=setTimeout(async()=>{try{
+    const d=await jget('https://api-adresse.data.gouv.fr/search/?limit=5&q='+encodeURIComponent(q));
+    sugg.innerHTML='';(d.features||[]).forEach(f=>{const div=document.createElement('div');
+      div.textContent=f.properties.label;
+      div.onclick=()=>{state.addr={label:f.properties.label,lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0]};
+        addrInput.value=f.properties.label;sugg.style.display='none';setStatus('Adresse validée ✔ — choisissez un niveau ci-dessus.');};
+      sugg.appendChild(div);});
+    sugg.style.display=d.features&&d.features.length?'block':'none';
+  }catch(e){sugg.style.display='none';}},280);};
+document.addEventListener('click',e=>{if(!e.target.closest('.autocomplete'))sugg.style.display='none';});
+
+/* ================= COLLECTE DE DONNÉES RÉELLES ================= */
+async function fetchData(){
+  const s=SECTORS[state.business];
+  const key=[state.addr.lat,state.addr.lon,state.time,state.modes.join('+'),state.business].join('|');
+  if(state.data&&state.dataKey===key)return state.data;
+  state.excluded.clear();state.renamed={};
+  document.getElementById('warn').style.display='none';
+  const D={warnings:[]};
+
+  setStatus('1/5 · Zone de chalandise réelle (IGN)…');
+  D.zones=[];
+  for(const mode of state.modes){
+    try{
+      const iso=await jget(`https://data.geopf.fr/navigation/isochrone?point=${state.addr.lon},${state.addr.lat}&resource=bdtopo-valhalla&costValue=${state.time*60}&costType=time&profile=${mode}&direction=departure&geometryFormat=geojson`);
+      D.zones.push({mode,poly:iso.geometry.coordinates[0].map(c=>[c[1],c[0]]),real:true});
+    }catch(e){
+      const rKm=mode==='car'?state.time*0.55:state.time*0.07;const poly=[];
+      for(let i=0;i<=48;i++){const a=i/48*2*Math.PI;
+        poly.push([state.addr.lat+rKm/111*Math.sin(a),state.addr.lon+rKm/(111*Math.cos(state.addr.lat*Math.PI/180))*Math.cos(a)]);}
+      D.zones.push({mode,poly,real:false});
+      D.warnings.push('Isochrone IGN injoignable ('+(mode==='car'?'voiture':'piéton')+') — zone approximée par un rayon équivalent.');}
+  }
+  const finalizeZones=()=>{
+    D.zones.forEach(z=>z.area=polyAreaKm2(z.poly));
+    D.zones.sort((a,b)=>b.area-a.area);
+    D.poly=D.zones[0].poly;D.isoReal=D.zones[0].real;
+    D.areaKm2=D.zones[0].area;
+  };
+  finalizeZones();
+
+  setStatus('2/5 · Population & communes (INSEE)…');
+  D.communes=[];D.pop=0;D.horsFrance=0;
+  /* Découpage exact par contours communaux, côté serveur (identifie aussi la part hors France) */
+  const zoneCall=async()=>{
+    try{
+      const r=await fetch('/api/zone',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({areaKm2:D.areaKm2,
+          poly:D.poly.filter((p,i)=>i%2===0||i===D.poly.length-1).map(p=>[+p[0].toFixed(5),+p[1].toFixed(5)])})});
+      if(!r.ok)return false;
+      const z=await r.json();
+      if(!(z.communes&&z.communes.length))return false;
+      D.communes=z.communes;D.pop=z.pop;D.horsFrance=z.horsFrance||0;
+      D.horsRects=z.horsRects||[];D.suisse=z.suisse||null;
+      if(z.surfaceFrKm2)D.areaFrKm2=z.surfaceFrKm2;
+      return true;
+    }catch(e){return false;/* on bascule sur la méthode locale plus bas */}
+  };
+  await zoneCall();
+
+  /* Zone frontalière : l'isochrone IGN est calculée sur la BD TOPO, qui ne contient que le réseau
+     routier français — elle s'arrête donc net à la frontière et ampute la zone réelle. Dès qu'une
+     part de la zone sort de France, on recalcule le temps de trajet sur un graphe routier européen
+     (OpenStreetMap) puis on redécoupe la population. */
+  if((D.horsFrance>=0.003||(D.suisse&&D.suisse.communes&&D.suisse.communes.length))&&D.isoReal&&!state.noCross){
+    setStatus('1/5 · Zone frontalière détectée — recalcul du temps de trajet sur le réseau européen…');
+    let ok=false;
+    for(const z of D.zones){
+      try{
+        const r=await fetch('/api/iso',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({lat:state.addr.lat,lon:state.addr.lon,minutes:state.time,mode:z.mode})});
+        if(!r.ok)continue;
+        const d=await r.json();
+        if(d.poly&&d.poly.length>3){z.poly=d.poly;z.engine=d.engine;ok=true;}
+      }catch(e){}
+    }
+    if(ok){
+      finalizeZones();
+      D.crossEngine=(D.zones.find(z=>z.engine)||{}).engine||null;
+      setStatus('2/5 · Population & communes (INSEE + Suisse)…');
+      await zoneCall();
+    }else{
+      D.warnings.push('Zone frontalière : le trajet au-delà de la frontière n\'a pas pu être calculé (moteur européen indisponible). La partie étrangère de la zone — et donc la population qu\'elle contient — est très probablement sous-estimée.');
+    }
+  }
+  if(!D.communes.length)try{
+    const lats=D.poly.map(p=>p[0]),lons=D.poly.map(p=>p[1]);
+    const la0=Math.min(...lats),la1=Math.max(...lats),lo0=Math.min(...lons),lo1=Math.max(...lons);
+    /* a) grille dense de la zone — calcul 100 % local, aucun appel réseau */
+    const G=28,grid=[];
+    for(let i=0;i<G;i++)for(let j=0;j<G;j++){
+      const pt=[la0+(i+.5)/G*(la1-la0),lo0+(j+.5)/G*(lo1-lo0)];
+      if(pip(pt,D.poly))grid.push(pt);}
+    if(!grid.length)grid.push([state.addr.lat,state.addr.lon]);
+    /* b) départements traversés : 6 sondages suffisent */
+    const idx=[0,.25,.5,.75,1].map(f=>grid[Math.min(grid.length-1,Math.floor(f*(grid.length-1)))]);
+    const probes=[...idx,[state.addr.lat,state.addr.lon]];
+    const pr=await Promise.allSettled(probes.map(pt=>jget(
+      `https://geo.api.gouv.fr/communes?lat=${pt[0].toFixed(5)}&lon=${pt[1].toFixed(5)}&fields=code,codeDepartement`)));
+    const deps=new Set();
+    pr.forEach(r=>{if(r.status==='fulfilled'&&r.value&&r.value[0]&&r.value[0].codeDepartement)deps.add(r.value[0].codeDepartement);});
+    if(!deps.size)throw new Error('département introuvable');
+    /* c) toutes les communes de ces départements : une seule requête par département */
+    const all=[];
+    const ds=await Promise.allSettled([...deps].slice(0,6).map(dp=>jget(
+      `https://geo.api.gouv.fr/departements/${dp}/communes?fields=nom,code,population,surface,centre&format=json`,15000)));
+    ds.forEach(r=>{if(r.status==='fulfilled'&&Array.isArray(r.value))all.push(...r.value);});
+    const ref=all.filter(c=>c.centre&&c.centre.coordinates).map(c=>({
+      nom:c.nom,code:c.code,pop:c.population||0,km2:Math.max(.5,(c.surface||1000)/100),
+      la:c.centre.coordinates[1],lo:c.centre.coordinates[0]}));
+    if(!ref.length)throw new Error('communes indisponibles');
+    /* d) chaque point de la zone est rattaché à la commune la plus proche */
+    const hits={};let kept=0;
+    grid.forEach(pt=>{
+      let best=null,bd=9e9;
+      for(const c of ref){const d=haversine(pt,[c.la,c.lo]);if(d<bd){bd=d;best=c;}}
+      if(!best||bd>12)return; /* point hors territoire français (frontière, mer) */
+      kept++;(hits[best.code]=hits[best.code]||{c:best,n:0}).n++;
+    });
+    const cellKm2=D.areaKm2/Math.max(1,kept);
+    D.hors=grid.length-kept;
+    D.communes=Object.values(hits).map(h=>{
+      const share=Math.min(1,(h.n*cellKm2)/h.c.km2);
+      return{nom:h.c.nom,code:h.c.code,share,popIn:Math.round(h.c.pop*share)};
+    }).filter(c=>c.popIn>0).sort((a,b)=>b.popIn-a.popIn);
+    D.pop=D.communes.reduce((a,c)=>a+c.popIn,0);
+  }catch(e){}
+  if(D.horsFrance>0.02)D.warnings.push(`${Math.round(D.horsFrance*100)} % de cette zone se situe hors de France : cette partie n'est comptabilisée dans aucun indicateur (voir l'encadré transfrontalier).`);
+  if(!D.pop){D.pop=Math.round(D.areaKm2*2500);
+    D.warnings.push('API communes injoignable — population estimée par densité moyenne.');}
+
+  /* --- 3/4 · Indicateurs socio-économiques (INSEE) --- */
+  setStatus('3/5 · Emploi, démographie & chômage (INSEE)…');
+  D.socio=null;
+  try{
+    const codes=D.communes.map(c=>c.code).filter(Boolean);
+    if(codes.length){
+      const S=await jget('/api/insee?codes='+encodeURIComponent(codes.join(',')),12000);
+      const A={emplois:0,emploisAn:0,chom:0,act:0,chomAn:0,popNew:0,popOld:0,anNew:0,anOld:0,partiel:false,
+        revSum:0,revPop:0,revAn:0};
+      D.communes.forEach(c=>{
+        const sh=Math.min(1,c.share||1);
+        const e=S.emplois&&S.emplois[c.code];
+        if(e){A.emplois+=e.v*sh;A.emploisAn=Math.max(A.emploisAn,e.annee);}else A.partiel=true;
+        const ch=S.chomage&&S.chomage[c.code];
+        if(ch){A.chom+=ch.chomeurs*sh;A.act+=ch.actifs*sh;A.chomAn=Math.max(A.chomAn,ch.annee);}
+        const rv=S.revenu&&S.revenu[c.code];
+        if(rv&&rv.v&&c.popIn>0){A.revSum+=rv.v*c.popIn;A.revPop+=c.popIn;A.revAn=Math.max(A.revAn,rv.annee);}
+        const p=S.population&&S.population[c.code];
+        if(p){
+          const yrs=Object.keys(p).map(Number).sort((a,b)=>a-b);
+          if(yrs.length>=2){
+            const yN=yrs[yrs.length-1];
+            let yO=[...yrs].reverse().find(y=>y<=yN-5);if(yO==null)yO=yrs[0];
+            if(yO!==yN){A.popNew+=p[yN]*sh;A.popOld+=p[yO]*sh;
+              A.anNew=Math.max(A.anNew,yN);A.anOld=A.anOld?Math.min(A.anOld,yO):yO;}
+          }
+        }
+      });
+      D.socio={
+        emplois:A.emplois>0?Math.round(A.emplois):null, emploisAn:A.emploisAn||null, emploisPartiel:A.partiel,
+        chomage:A.act>0?A.chom/A.act:null, chomageAn:A.chomAn||null, actifs:A.act>0?Math.round(A.act):null,
+        evol:(A.popOld>0&&A.popNew>0)?(A.popNew/A.popOld-1):null,
+        evolAn:A.anNew||null, evolAnOld:A.anOld||null,
+        evolAnnuel:(A.popOld>0&&A.popNew>0&&A.anNew>A.anOld)?Math.pow(A.popNew/A.popOld,1/(A.anNew-A.anOld))-1:null,
+        revenu:A.revPop>0?Math.round(A.revSum/A.revPop):null, revenuAn:A.revAn||null,
+        revenuCouv:D.pop>0?A.revPop/D.pop:0
+      };
+    }
+  }catch(e){D.warnings.push('Indicateurs INSEE (emploi, démographie, chômage) indisponibles pour le moment.');}
+
+  /* --- 4/4 · Concurrence : terrain (OpenStreetMap) puis chiffres (SIRENE) --- */
+  D.comps=[];D.concOk=true;D.compStats=null;
+  if(!s){D.concOk=false;}
+  else{setStatus('4/5 · Concurrents : recherche terrain puis chiffres officiels…');
+  try{
+    const radius=Math.min(25,Math.max(1,Math.sqrt(D.areaKm2/Math.PI)));
+    const r=await fetch('/api/competitors',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:state.addr.lat,lon:state.addr.lon,radiusKm:radius,naf:s.naf,osm:s.osm||[],
+        nafWide:s.nafWide||[],kw:s.kw||[]})});
+    if(!r.ok)throw new Error(r.status);
+    const d=await r.json();
+    (d.warnings||[]).forEach(w=>D.warnings.push(w));
+    D.compStats=d.stats||null;
+    D.comps=(d.comps||[])
+      .filter(c=>pip([c.lat,c.lon],D.poly)||c.dist<=radius)
+      .map(c=>({...c,created:c.created||'n.c.'}))
+      .slice(0,20);
+  }catch(e){D.concOk=false;
+    D.warnings.push('Recherche de concurrents indisponible — réessayez dans un instant.');}}
+
+  /* --- Tissu économique : tous les établissements de la zone (carte) --- */
+  setStatus('5/5 · Cartographie des entreprises de la zone…');
+  D.biz=null;D.bizErr=null;
+  try{
+    const radius=Math.min(25,Math.max(1,Math.sqrt(D.areaKm2/Math.PI)));
+    /* On transmet la boîte englobante exacte de l'isochrone : bien moins lourd pour Overpass
+       qu'un rayon, surtout sur les grandes zones transfrontalières. */
+    const bla=D.poly.map(p=>p[0]),blo=D.poly.map(p=>p[1]);
+    const bbox=[Math.min(...bla),Math.min(...blo),Math.max(...bla),Math.max(...blo)];
+    const r=await fetch('/api/businesses',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:state.addr.lat,lon:state.addr.lon,radiusKm:radius,bbox})});
+    if(!r.ok)throw new Error('service indisponible ('+r.status+')');
+    const d=await r.json();
+    if(d.error)throw new Error(d.detail||d.error);
+    const inside=(d.pts||[]).filter(p=>pip([p.la,p.lo],D.poly));
+    if(!inside.length)throw new Error('aucun établissement géolocalisé dans cette zone');
+    const byCat={};inside.forEach(p=>{byCat[p.c]=(byCat[p.c]||0)+1;});
+    D.biz={pts:inside,byCat,total:inside.length,tronque:!!d.tronque,
+      locos:inside.filter(p=>p.g&&p.n).sort((a,b)=>a.n.localeCompare(b.n)).slice(0,12)};
+  }catch(e){D.bizErr=String(e&&e.message||e);}
+
+  state.data=D;state.dataKey=key;
+  return D;
+}
+
+/* ================= GÉNÉRATION ================= */
+async function generate(level){
+  if(!state.addr){setStatus('⚠️ Choisissez d\'abord une adresse dans la liste.');
+    document.getElementById('address').focus();return;}
+  state.level=level;
+  const D=await fetchData();
+  if(D.warnings.length)warn(D.warnings.join(' · '));
+  setStatus('Étude générée ✔');
+  render(level,D);
+}
+function unlock(l){if(!PAY||l<=(state.entitled||0))generate(l);else payFor(l);}
+function chooseLevel(l){if(!PAY||l<=(state.entitled||0))generate(l);else payFor(l);}
+function backHome(){document.getElementById('result').style.display='none';
+  document.getElementById('config-view').style.display='block';window.scrollTo(0,320);}
+
+function lockWrap(inner,req,cur,title,oldPrice,desc){
+  if(cur>=req)return inner;
+  const head=PAY?`${title} — <span style="color:var(--ink)">${oldPrice}</span>`
+    :`${title} — <s style="color:#b3bfca">${oldPrice}</s> <span style="color:var(--green)">offert en bêta</span>`;
+  const cta=PAY?`<button class="lock-cta" onclick="unlock(${req})">Débloquer pour ${oldPrice} →</button>
+      <div class="lock-note">Paiement sécurisé Stripe · déblocage immédiat</div>`
+    :`<button class="lock-cta" onclick="unlock(${req})">Débloquer gratuitement →</button>
+      <div class="lock-note">Bêta : tous les niveaux sont offerts · bientôt ${oldPrice} / rapport</div>`;
+  return `<div class="locked-wrap"><div class="locked-content" aria-hidden="true">${inner}</div>
+    <div class="locked-overlay"><div class="lock-card">
+      <div class="lock-ic">${PAY?'🔓':'🎁'}</div>
+      <div class="lock-title">${head}</div>
+      <div class="lock-desc">${desc}</div>
+      ${cta}
+    </div></div></div>`;
+}
+/* ====== CONCURRENTS RETIRÉS PAR LE CLIENT ====== */
+/* Nom affiché d'un concurrent : le nom corrigé par le client s'il en a saisi un.
+   Nécessaire car SIRENE ne connaît souvent que la raison sociale du franchisé
+   (SC SPORT) et pas l'enseigne commerciale (L'Appart Fitness). */
+function nomComp(c){return state.renamed[compKey(c)]||c.ens;}
+const attr=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+function compKey(c){return [c.ens||'',c.adr||'',(c.lat||0).toFixed(4)].join('|');}
+function activeComps(D){return (D.comps||[]).filter(c=>!state.excluded.has(compKey(c)));}
+function restoreComps(){state.excluded.clear();rerender();}
+/* Re-rendu sans repartir en haut de page (confort après une suppression) */
+function rerender(){const y=window.scrollY;state.keepScroll=true;render(state.level,state.data);
+  requestAnimationFrame(()=>window.scrollTo(0,y));}
+/* Délégation d'évènement : robuste quel que soit le nom de l'enseigne (apostrophes, accents…) */
+document.getElementById('r-content').addEventListener('click',e=>{
+  if(!state.data)return;
+  const r=e.target.closest('.renc');
+  if(r){editNom(r);return;}
+  const b=e.target.closest('.delc');if(!b)return;
+  const c=activeComps(state.data)[Number(b.dataset.i)];
+  if(!c)return;
+  state.excluded.add(compKey(c));rerender();
+});
+/* Correction du nom commercial : SIRENE ne publie que la raison sociale quand le
+   gérant n'a pas déclaré son enseigne. Le client rétablit le nom réel en un clic. */
+function editNom(btn){
+  const c=activeComps(state.data)[Number(btn.dataset.i)];
+  if(!c)return;
+  const cell=btn.closest('td');if(!cell||cell.querySelector('input'))return;
+  const cur=nomComp(c);
+  cell.innerHTML=`<input class="renin" type="text" value="${attr(cur)}" maxlength="60">`;
+  const inp=cell.querySelector('input');inp.focus();inp.select();
+  let fini=false;
+  const done=ok=>{
+    if(fini)return;fini=true;
+    if(ok){const v=inp.value.trim();
+      if(v&&v!==c.ens)state.renamed[compKey(c)]=v;else delete state.renamed[compKey(c)];}
+    rerender();
+  };
+  inp.addEventListener('keydown',ev=>{
+    if(ev.key==='Enter'){ev.preventDefault();done(true);}
+    if(ev.key==='Escape'){ev.preventDefault();done(false);}});
+  inp.addEventListener('blur',()=>done(true));
+}
+
+/* ====== EMPLOI · DÉMOGRAPHIE · CHÔMAGE · REVENU ====== */
+/* Références France, pour situer chaque indicateur (mêmes définitions que les données communales) */
+const FRANCE={revenu:23080,revenuAn:2021,chomage:0.1162,chomageAn:2022,
+  evolAnnuel:0.0035,evolPer:'2016-2022',concentration:0.982};
+const cmpBox=(cls,txt)=>`<div class="cmp ${cls}">${txt}</div>`;
+function socioSection(D){
+  const S=D.socio||{};
+  const evol=S.evol==null?'—':((S.evol>=0?'+':'−')+dec(Math.abs(S.evol)*100,1)+' %');
+  const evolU=S.evol==null?'donnée indisponible'
+    :`entre ${S.evolAnOld} et ${S.evolAn}${S.evolAnnuel!=null?' · '+(S.evolAnnuel>=0?'+':'−')+dec(Math.abs(S.evolAnnuel)*100,2)+' %/an':''}`;
+  const ratio=(S.emplois&&S.actifs)?S.emplois/S.actifs:null;
+
+  /* --- comparaisons à la moyenne nationale --- */
+  /* Écart en % par rapport à la France, suivi du détail chiffré */
+  const ecartPct=(v,ref,bonSiSup,detail,seuil)=>{
+    if(v==null||!ref)return '';
+    const e=v/ref-1,s2=(seuil==null?0.03:seuil);
+    if(Math.abs(e)<s2)return cmpBox('neu',`≈ moyenne nationale · ${detail}`);
+    const bon=bonSiSup?e>0:e<0;
+    return cmpBox(bon?'good':'bad',
+      `${e>0?'▲':'▼'} ${(e>0?'+':'−')}${(Math.abs(e)*100).toFixed(0)} % vs France · ${detail}`);
+  };
+  let cEmp='',cEvo='',cCho='',cRev='';
+  if(ratio!=null)
+    cEmp=ecartPct(ratio,FRANCE.concentration,true,
+      `${Math.round(ratio*100)} emplois pour 100 actifs (France : 98)`,0.05);
+  if(S.evolAnnuel!=null){
+    const d=(S.evolAnnuel-FRANCE.evolAnnuel)*100;
+    const det=`${(S.evolAnnuel>=0?'+':'−')+dec(Math.abs(S.evolAnnuel)*100,2)} %/an (France : +0,35 %/an)`;
+    cEvo=S.evolAnnuel<0?cmpBox('bad',`▼ population en recul · ${det}`)
+      :ecartPct(S.evolAnnuel,FRANCE.evolAnnuel,true,det,0.05);
+  }
+  if(S.chomage!=null)
+    cCho=ecartPct(S.chomage,FRANCE.chomage,false,
+      `${(S.chomage>=FRANCE.chomage?'+':'−')+dec(Math.abs((S.chomage-FRANCE.chomage)*100),1)} pts (France : 11,6 %)`,0.04);
+  if(S.revenu!=null)
+    cRev=ecartPct(S.revenu,FRANCE.revenu,true,`${fmt(FRANCE.revenu)} € en moyenne`);
+
+  const hf=D.horsFrance||0;
+  const fron=hf>0.02?`<div class="cardbox" style="border:1px dashed var(--amber);background:#fdf9f0;margin-bottom:14px">
+      <h4>🌍 Zone transfrontalière — ${Math.round(hf*100)} % de la zone hors de France</h4>
+      <p style="font-size:14px;color:#4a5a6b">Environ <b>${Math.round(hf*100)} %</b> de la surface accessible en ${state.time} min se trouve à l'étranger${D.areaFrKm2?` (partie française : ${fmt(D.areaFrKm2)} km² sur ${fmt(D.areaKm2)} km²)`:''}. Les habitants, emplois et entreprises qui s'y trouvent <b>ne figurent dans aucune base française</b> : tous les indicateurs ci-dessous portent donc uniquement sur la partie française de la zone.</p>
+      ${(()=>{const S2=D.suisse;if(!S2||!S2.communes||!S2.communes.length)return '';
+        const noms=S2.communes.slice(0,8).map(c=>c.nom).join(', ');
+        const rv=S2.revenu;
+        return `<div style="border-top:1px solid #e8dcc0;margin-top:10px;padding-top:10px">
+          <div class="tiles" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+            <div class="tile"><div class="k">🇨🇭 Habitants côté suisse</div>
+              <div class="v">${S2.pop?fmt(S2.pop)+' <span style="font-size:13px">est.</span>':'n.d.'}</div>
+              <div class="u">${S2.communes.length} commune${S2.communes.length>1?'s':''} touchée${S2.communes.length>1?'s':''}${S2.popAn?' · population '+S2.popAn:''}</div></div>
+            <div class="tile"><div class="k">🇨🇭 Revenu médian</div>
+              <div class="v">${rv?fmt(rv.v)+' <span style="font-size:13px">CHF</span>':'n.d.'}</div>
+              <div class="u">${rv?'brut par contribuable · '+rv.lib+' '+rv.an:'non publié pour ce canton'}</div></div>
+          </div>
+          <p style="font-size:13px;color:#4a5a6b"><b>Communes suisses concernées :</b> ${noms}${S2.communes.length>8?'…':''}${S2.sansPop?` <i>(population non publiée pour ${S2.sansPop} d'entre elles — le total suisse est donc un minimum)</i>`:''}.
+          ${rv?`À titre de repère, ce revenu suisse est un <b>revenu brut par contribuable</b>, alors que le chiffre français ci-dessous est un <b>revenu disponible après impôts et prestations, par personne</b> : les deux ne se comparent pas directement, et le niveau des prix suisse est supérieur d'environ 50 %.`:''}</p></div>`;})()}
+      <p style="font-size:14px;color:#4a5a6b;margin-top:8px"><b>Votre potentiel réel est supérieur à ce qui est affiché.</b> Près de Genève ou de Bâle, l'écart est souvent considérable : pouvoir d'achat élevé et flux quotidien de frontaliers. À intégrer manuellement dans votre décision.</p></div>`:'';
+
+  return `<div class="rsection"><h3>Emploi, démographie, chômage & revenus</h3>
+    ${fron}
+    <div class="tiles">
+      <div class="tile"><div class="k">💼 Emplois dans la zone</div>
+        <div class="v">${S.emplois!=null?fmt(S.emplois):'—'}</div>
+        <div class="u">${S.emplois!=null?'personnes y travaillent · recensement '+S.emploisAn:'donnée indisponible'}</div>${cEmp}</div>
+      <div class="tile ${S.evol==null?'':(S.evol>=0?'good':'warn')}"><div class="k">📈 Évolution démographique</div>
+        <div class="v">${evol}</div><div class="u">${evolU}</div>${cEvo}</div>
+      <div class="tile ${S.chomage==null?'':(S.chomage<=FRANCE.chomage?'good':'warn')}"><div class="k">📉 Taux de chômage</div>
+        <div class="v">${S.chomage==null?'—':dec(S.chomage*100,1)+' %'}</div>
+        <div class="u">${S.chomage==null?'donnée indisponible':'des actifs · recensement '+S.chomageAn}</div>${cCho}</div>
+      <div class="tile ${S.revenu==null?'':(S.revenu>=FRANCE.revenu?'good':'warn')}"><div class="k">💶 Revenu médian</div>
+        <div class="v">${S.revenu==null?'—':fmt(S.revenu)+' €'}</div>
+        <div class="u">${S.revenu==null?'non publié pour cette zone':'par personne et par an · Filosofi '+S.revenuAn}</div>${cRev}</div>
+    </div>
+    <p class="note">${S.revenu!=null?`<b>Lecture du revenu médian :</b> la moitié des habitants de la zone vit avec moins de ${fmt(S.revenu)} € par an et par personne (revenu disponible après impôts et prestations, corrigé de la composition du foyer), contre 23 080 € en France. ${S.revenu>=FRANCE.revenu*1.1?'Une zone au pouvoir d\'achat supérieur à la moyenne : le positionnement premium y est jouable.':(S.revenu<=FRANCE.revenu*0.9?'Une zone au pouvoir d\'achat inférieur à la moyenne : privilégiez un positionnement accessible et des prix d\'appel.':'Un pouvoir d\'achat proche de la moyenne nationale : positionnement milieu de gamme cohérent.')}${S.revenuCouv<0.8?' Attention : le revenu n\'est publié que pour '+Math.round(S.revenuCouv*100)+' % de la population de la zone (secret statistique sur les petites communes).':''}`:''}</p>
+    <p class="note">Calculé sur l'<b>ensemble de la zone de chalandise</b> (${D.communes.length} commune${D.communes.length>1?'s':''} couverte${D.communes.length>1?'s':''}), et non sur la seule commune d'implantation. Sources : INSEE — emplois au lieu de travail et taux de chômage (recensement${S.emploisAn?' '+S.emploisAn:''}), population municipale par millésime pour l'évolution, revenu médian Filosofi ${S.revenuAn||2021} (moyenne des médianes communales pondérée par la population). Références nationales : recensement 2022 et Filosofi 2021, mêmes définitions. Valeurs proratisées sur la part de chaque commune réellement couverte par la zone.${S.emploisPartiel?' Certaines communes de la zone n\'ont pas de donnée publiée.':''}</p>
+  </div>`;
+}
+
+/* ====== TISSU ÉCONOMIQUE : CARTE DE TOUTES LES ENTREPRISES ====== */
+/* Partie de la zone située hors de France, en rouge hachuré sur la carte */
+function drawHors(m,D){
+  if(!m||!D.horsRects||!D.horsRects.length)return;
+  D.horsRects.forEach(r=>{
+    L.rectangle([[r[0][0],r[0][1]],[r[1][0],r[1][1]]],
+      {stroke:false,fillColor:'#B23A3A',fillOpacity:.30,interactive:false,className:'hors-fr'}).addTo(m);
+  });
+}
+/* Moteur ayant calculé l'isochrone : IGN en France, graphe routier européen en zone frontalière */
+const isoSource=D=>D.crossEngine?('un graphe routier européen (OpenStreetMap'+(D.crossEngine==='ors'?' / OpenRouteService':' / Valhalla')+'), frontière comprise'):"l'IGN";
+const horsLegende=D=>(D.horsRects&&D.horsRects.length)
+  ?` · <b style="color:#B23A3A">zone rouge = partie hors de France</b>, non comptabilisée`:'';
+
+let bmap=null;
+function bizSection(D){
+  const B=D.biz;
+  if(!B)return D.bizErr?`<div class="rsection"><h3>Tissu économique de la zone</h3>
+    <div class="cardbox" style="border-style:dashed"><h4>🗺️ Carte des entreprises momentanément indisponible</h4>
+    <p style="font-size:14px;color:#4a5a6b">Le serveur cartographique bénévole d'OpenStreetMap n'a pas répondu à temps pour cette zone${D.areaKm2>250?` — elle est très étendue (${fmt(Math.round(D.areaKm2))} km²), ce qui représente des dizaines de milliers de commerces à recenser`:''} : <i>${D.bizErr}</i>.
+    Relancez l'étude dans une minute : la réponse est mise en cache et aboutit presque toujours au second essai. Le reste du rapport n'est pas affecté.</p></div></div>`:'';
+  const dens=B.total/Math.max(1,D.areaKm2);
+  const cats=Object.entries(B.byCat).sort((a,b)=>b[1]-a[1]);
+  const top=cats[0]?`${cats[0][0]} (${cats[0][1]})`:'—';
+  const nLoco=B.pts.filter(p=>p.g).length;
+  return `<div class="rsection"><h3>Tissu économique de la zone</h3>
+    <div class="cols2b">
+      <div><div id="bmap"></div>
+        <p class="note">Chaque point bleu = un établissement implanté dans la zone (commerce, restauration, service, artisan, loisir). En orange, les <b>locomotives commerciales</b> qui génèrent du flux. Le <b style="color:#B23A3A">point rouge</b> est votre implantation souhaitée.${B.tronque?' Affichage limité aux 2 500 premiers établissements.':''}</p></div>
+      <div>
+        <div class="tiles" style="grid-template-columns:1fr 1fr">
+          <div class="tile"><div class="k">Établissements dans la zone</div><div class="v">${fmt(B.total)}</div><div class="u">tous secteurs confondus</div></div>
+          <div class="tile"><div class="k">Densité commerciale</div><div class="v">${dec(dens,1)}</div><div class="u">établissements / km²</div></div>
+          <div class="tile"><div class="k">Locomotives</div><div class="v">${nLoco}</div><div class="u">grandes surfaces & pôles</div></div>
+          <div class="tile"><div class="k">Catégorie dominante</div><div class="v" style="font-size:17px">${top}</div></div>
+        </div>
+        <div class="cardbox" style="margin-top:13px"><h4>Répartition par activité</h4>
+          ${cats.map(([c,n])=>bar(c,n/B.total)).join('')}
+          ${B.locos.length?`<p class="note"><b>Locomotives repérées :</b> ${B.locos.map(l=>l.n).join(' · ')}</p>`:''}
+          <p class="note">Source : OpenStreetMap — établissements géolocalisés à l'intérieur de votre isochrone.</p>
+        </div>
+      </div>
+    </div></div>`;
+}
+function drawBizMap(D){
+  if(!D.biz||typeof L==='undefined')return;
+  const el=document.getElementById('bmap');if(!el)return;
+  if(bmap){try{bmap.remove();}catch(e){}bmap=null;}
+  bmap=L.map('bmap',{preferCanvas:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(bmap);
+  const pl=L.polygon(D.poly,{color:'#1F3A5F',weight:2,dashArray:'6 5',fill:false}).addTo(bmap);
+  D.biz.pts.forEach(p=>{
+    const loco=!!p.g;
+    const mk=L.circleMarker([p.la,p.lo],{radius:loco?6:3,
+      color:loco?'#B8860B':'#2E6EB5',weight:loco?1.5:0,
+      fillColor:loco?'#E3A81B':'#2E6EB5',fillOpacity:loco?.95:.6}).addTo(bmap);
+    if(p.n)mk.bindPopup(`<b>${p.n}</b>${p.t?'<br>'+p.t:''}`);
+  });
+  L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#fff',weight:2,
+    fillColor:'#B23A3A',fillOpacity:1}).addTo(bmap).bindPopup('<b>Votre emplacement</b>');
+  bmap.fitBounds(pl.getBounds(),{padding:[16,16]});
+}
+
+const bar=(lab,v)=>`<div class="bar-row"><span class="lab">${lab}</span>
+  <span class="bar-track"><span class="bar-fill" style="width:${(v*100).toFixed(0)}%"></span></span>
+  <span class="val">${(v*100).toFixed(0)}%</span></div>`;
+function hbars(vals){const W=440,H=140,pad=14,n=vals.length,gap=(W-2*pad)/n,bw=gap*.62,max=Math.max(...vals);let out='';
+  for(let i=0;i<n;i++){const h=vals[i]/max*(H-38),x=pad+i*gap,y=H-20-h;
+    out+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="#2E6EB5" opacity="${(.5+.5*vals[i]/max).toFixed(2)}"/>`;
+    if(i%2===0)out+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" font-size="9" fill="#7a8699" text-anchor="middle">${7+i}h</text>`;}
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="140">${out}</svg>`;}
+function lineSVG(vals){const W=440,H=150,pad=8;
+  const min=Math.min(...vals,0),max=Math.max(...vals,0),range=(max-min)||1;
+  const x=i=>pad+i*(W-2*pad)/(vals.length-1),y=v=>H-pad-(v-min)/range*(H-2*pad);
+  const zeroY=y(0),pts=vals.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="150">
+    <line x1="${pad}" y1="${zeroY}" x2="${W-pad}" y2="${zeroY}" stroke="#c3cfdb" stroke-width="1" stroke-dasharray="4 4"/>
+    <polyline points="${pad},${zeroY} ${pts} ${x(vals.length-1)},${zeroY}" fill="#B23A3A" fill-opacity="0.10"/>
+    <polyline points="${pts}" fill="none" stroke="#B23A3A" stroke-width="2.5" stroke-linejoin="round"/></svg>`;}
+
+let map=null,mapLayers=[];
+function renderZone(D){
+  document.getElementById('config-view').style.display='none';
+  document.getElementById('result').style.display='block';
+  if(state.keepScroll){state.keepScroll=false;}else{window.scrollTo(0,0);}
+  document.getElementById('r-title').textContent='🗺️ Étude de zone de chalandise';
+  document.getElementById('r-badge').textContent='Zone libre';
+  const modeLab=modeLabel();
+  document.getElementById('r-meta').textContent=`${state.addr.label} · zone ${state.time} min ${modeLab} · générée le ${new Date().toLocaleDateString('fr-FR')}`;
+  const fluxP=Math.round(D.pop*0.11/10)*10;
+  let html='';
+  html+=`<div class="rsection"><h3>Zone de chalandise — isochrone réelle</h3>
+    <div class="cols2b">
+      <div><div id="lmap"></div>
+        <p class="note">Zone ${state.time} min ${modeLab} calculée par ${isoSource(D)} · 📍 votre point de départ${D.zones.length>1?' · 🚗 zone voiture (bleu) · 🚶 zone piétonne (vert)':''}${horsLegende(D)}.</p></div>
+      <div>
+        <div class="tiles" style="grid-template-columns:1fr 1fr">
+          <div class="tile"><div class="k">Population accessible</div><div class="v">${fmt(D.pop)}</div><div class="u">habitants (est.)</div></div>
+          <div class="tile"><div class="k">Ménages</div><div class="v">${fmt(D.pop/2.2)}</div><div class="u">foyers (est.)</div></div>
+          <div class="tile"><div class="k">Superficie</div><div class="v">${D.areaKm2.toFixed(0)}<span style="font-size:14px"> km²</span></div><div class="u">zone isochrone</div></div>
+          <div class="tile"><div class="k">Densité</div><div class="v">${fmt(D.pop/Math.max(1,D.areaKm2))}</div><div class="u">hab. / km²</div></div>
+        </div>
+        <div class="cardbox" style="margin-top:13px"><h4>Composition — communes couvertes</h4>
+          ${D.communes.slice(0,8).map(c=>{const p=D.pop?c.popIn/D.pop:0;
+            return `<div class="bar-row"><span class="lab">${c.nom}</span><span class="bar-track"><span class="bar-fill" style="width:${Math.max(3,p*100).toFixed(0)}%"></span></span><span class="val">${fmt(c.popIn)} hab · ${(p*100).toFixed(0)}%</span></div>`;}).join('')
+            ||'<p class="note">Détail communal indisponible ici.</p>'}
+          <p class="note">${D.communes.length>8?'+ '+(D.communes.length-8)+' autre(s) commune(s) couverte(s). ':''}Population communale INSEE — part de chaque commune réellement située dans la zone, estimée par maillage géographique.</p>
+        </div>
+      </div>
+    </div></div>`;
+  html+=socioSection(D);
+  html+=bizSection(D);
+  html+=`<div class="rsection"><h3>Flux dans la zone <span class="estchip">INDICE ESTIMÉ</span></h3>
+    <div class="cols2b">
+      <div class="cardbox"><h4>Profil de passage — journée type</h4>${hbars([0.30,0.65,0.45,0.35,0.45,0.90,0.80,0.40,0.35,0.42,0.55,0.92,1.00,0.72,0.45])}
+        <p class="note">Profil horaire type (double pic midi/soir).</p></div>
+      <div><div class="tiles" style="grid-template-columns:1fr 1fr">
+        <div class="tile"><div class="k">🚶 Indice de passage</div><div class="v">${fmt(fluxP)}</div><div class="u">passages/j estimés (densité)</div></div>
+        <div class="tile"><div class="k">Heure de pointe</div><div class="v">18–19 h</div><div class="u">profil type</div></div>
+      </div>
+      <p class="note">Indice calculé depuis la densité de population de la zone.</p></div>
+    </div></div>`;
+  html+=`<div class="rsection"><div class="cardbox" style="text-align:center;border-style:dashed;border-color:var(--blue)">
+    <h4 style="font-size:16px">💡 Envie d'aller plus loin sur cette zone ?</h4>
+    <p style="font-size:14px;color:#4a5a6b;max-width:560px;margin:0 auto 14px">Choisissez votre futur business pour obtenir la <b>concurrence réelle</b> (CA, résultats), le <b>potentiel de chiffre d'affaires</b> et le <b>business plan sur 18 mois</b> — offert pendant la bêta.</p>
+    <button class="lock-cta" onclick="backHome()">Choisir une activité →</button>
+  </div></div>`;
+  html+=`<div class="betabox">🎁 <b>Bêta gratuite</b> — vos retours nous aident : dites-nous ce qui manque !</div>`;
+  document.getElementById('r-content').innerHTML=html;
+  if(typeof L!=='undefined'){
+    if(map){try{map.remove();}catch(e){}map=null;}
+    map=L.map('lmap');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+    let pl=null;
+    D.zones.forEach(z=>{const col=z.mode==='car'?'#2E6EB5':'#1E7A46';
+      const p=L.polygon(z.poly,{color:col,weight:2.5,dashArray:'7 5',fillColor:col,fillOpacity:.10}).addTo(map)
+        .bindPopup(z.mode==='car'?'🚗 Zone en voiture':'🚶 Zone à pied');
+      if(z.poly===D.poly)pl=p;});
+    drawHors(map,D);
+    L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#1F3A5F',fillColor:'#1F3A5F',fillOpacity:1}).addTo(map).bindPopup('<b>Votre point de départ</b>');
+    map.fitBounds(pl.getBounds(),{padding:[16,16]});
+    drawBizMap(D);
+  }else{
+    const el=document.getElementById('lmap');
+    if(el)el.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#67788a;font-size:13.5px;text-align:center;padding:20px">🗺️ Carte indisponible hors ligne.</div>';
+  }
+}
+function render(level,D){
+  if(state.business==='zone'){renderZone(D);return;}
+  const comps=activeComps(D);const nExcl=state.excluded.size;
+  const s=SECTORS[state.business];
+  document.getElementById('config-view').style.display='none';
+  document.getElementById('result').style.display='block';
+  if(state.keepScroll){state.keepScroll=false;}else{window.scrollTo(0,0);}
+  const titles={1:'Zone de chalandise',2:'Étude de zone complète',3:'Business plan prévisionnel'};
+  document.getElementById('r-title').textContent=`${s.icon} ${s.label} — ${titles[level]}`;
+  document.getElementById('r-badge').textContent='Niveau '+level;
+  const modeLab=modeLabel();
+  document.getElementById('r-meta').textContent=`${state.addr.label} · zone ${state.time} min ${modeLab} · générée le ${new Date().toLocaleDateString('fr-FR')}`;
+
+  /* ---- calculs ---- */
+  let depHab=s.depHab;
+  if(s.hasGym)depHab=s.penetration*POS[state.pos].ab*12;
+  /* Pondération de la dépense par le revenu médian de la zone.
+     Élasticité propre au secteur : un produit de première nécessité suit peu le revenu,
+     un achat plaisir le suit fortement. Coefficient borné pour rester prudent. */
+  const depHabFr=depHab;
+  const revZ=D.socio&&D.socio.revenu;
+  const elast=(s.elast==null?0.8:s.elast);
+  const coefRev=revZ?Math.min(1.6,Math.max(0.6,Math.pow(revZ/FRANCE.revenu,elast))):1;
+  depHab=depHabFr*coefRev;
+  const marche=D.pop*depHab;
+  const n=D.concOk?Math.max(1,comps.length):Math.max(1,Math.round(D.pop/12000));
+  const part=Math.min(0.35,1/(n+1));
+  let capCA=s.caM2*state.surface;
+  if(s.hasGym)capCA=state.surface*POS[state.pos].dens*POS[state.pos].ab*12;
+  const caPot=Math.min(marche*part,capCA);
+  const inv=Math.round(s.invest*Math.min(2,Math.max(0.35,state.surface/s.refM2))/5000)*5000;
+  const credit=inv*(0.039/12)/(1-Math.pow(1+0.039/12,-84));
+  const months=[];let cum=0,be=0;
+  for(let m=1;m<=18;m++){const ramp=Math.min(1,0.12+(1-0.12)*(m-1)/11);
+    const ebeM=caPot/12*ramp*s.margeExploit-credit-(m===1?Math.min(15000,inv*.04):0);
+    cum+=ebeM;if(!be&&ebeM>0)be=m;months.push(cum);}
+  const ebeCruise=caPot/12*s.margeExploit-credit;
+  const pubCa=comps.filter(c=>c.ca);
+  const fluxP=Math.round(D.pop*0.11/10)*10;
+
+  let html='';
+  /* ---- NIVEAU 1 : zone ---- */
+  html+=`<div class="rsection"><h3>Zone de chalandise — isochrone réelle</h3>
+    <div class="cols2b">
+      <div><div id="lmap"></div>
+        <p class="note">Zone ${state.time} min ${modeLab} calculée par ${isoSource(D)} · 📍 votre emplacement · 🔴 concurrents réels${D.zones.length>1?' · 🚗 zone voiture (bleu) · 🚶 zone piétonne (vert)':''}${horsLegende(D)}.</p></div>
+      <div>
+        <div class="tiles" style="grid-template-columns:1fr 1fr">
+          <div class="tile"><div class="k">Population accessible</div><div class="v">${fmt(D.pop)}</div><div class="u">habitants (est.)</div></div>
+          <div class="tile"><div class="k">Ménages</div><div class="v">${fmt(D.pop/2.2)}</div><div class="u">foyers (est.)</div></div>
+          <div class="tile"><div class="k">Superficie</div><div class="v">${D.areaKm2.toFixed(0)}<span style="font-size:14px"> km²</span></div><div class="u">zone isochrone</div></div>
+          <div class="tile"><div class="k">Concurrents actifs</div><div class="v">${level>=2&&D.concOk?comps.length:'🔒'}</div><div class="u">${level>=2?'dans la zone':'niveau 2'}</div></div>
+        </div>
+        <div class="cardbox" style="margin-top:13px"><h4>Composition — communes couvertes</h4>
+          ${D.communes.slice(0,8).map(c=>{const p=D.pop?c.popIn/D.pop:0;
+            return `<div class="bar-row"><span class="lab">${c.nom}</span><span class="bar-track"><span class="bar-fill" style="width:${Math.max(3,p*100).toFixed(0)}%"></span></span><span class="val">${fmt(c.popIn)} hab · ${(p*100).toFixed(0)}%</span></div>`;}).join('')
+            ||'<p class="note">Détail communal indisponible ici.</p>'}
+          <p class="note">${D.communes.length>8?'+ '+(D.communes.length-8)+' autre(s) commune(s) couverte(s). ':''}Population communale INSEE — part de chaque commune réellement située dans la zone, estimée par maillage géographique.</p>
+        </div>
+      </div>
+    </div></div>`;
+
+  html+=socioSection(D);
+
+  /* ---- NIVEAU 2 : étude ---- */
+  let etude='';
+  const m=s.market,rp=s.ref;
+  etude+=`<div class="rsection"><h3>${m.title}</h3>
+    <p style="font-size:14px;color:#4a5a6b;max-width:820px;margin-bottom:14px">${m.intro}</p>
+    <div class="tiles" style="margin-bottom:16px">
+      <div class="tile"><div class="k">Taille du marché</div><div class="v" style="font-size:19px">${m.taille}</div><div class="u">France</div></div>
+      <div class="tile"><div class="k">Établissements</div><div class="v" style="font-size:19px">${m.etabl}</div></div>
+      <div class="tile"><div class="k">Croissance</div><div class="v" style="font-size:19px">${m.croissance}</div></div>
+      <div class="tile"><div class="k">${m.extra[0]}</div><div class="v" style="font-size:19px">${m.extra[1]}</div></div>
+    </div>
+    <div class="cols2b">
+      <div class="cardbox"><h4>Structuration de l'offre</h4>
+        ${m.structure.map(x=>`<div class="struct-row">
+          <div class="struct-top"><span>${x[0]}</span><span class="struct-pct">${x[1]} %</span></div>
+          <div class="bar-track"><span class="bar-fill" style="width:${x[1]}%"></span></div>
+          <div class="struct-ex">${x[2]}</div></div>`).join('')}
+      </div>
+      <div class="cardbox refbox"><h4>📊 Repère financier — acteur national de référence</h4>
+        <div class="ref-name">${rp.name}</div><div class="ref-note">${rp.note}</div>
+        <div class="ref-grid">
+          <div><div class="ref-k">Chiffre d'affaires</div><div class="ref-v">${rp.ca}</div></div>
+          <div><div class="ref-k">Croissance</div><div class="ref-v">${rp.croissance}</div></div>
+          <div><div class="ref-k">Marge / résultat</div><div class="ref-v">${rp.marge}</div></div>
+          <div><div class="ref-k">Salariés</div><div class="ref-v">${rp.sal}</div></div>
+        </div>
+        <div class="ref-extra">${rp.extra}</div>
+      </div>
+    </div></div>`;
+
+  etude+=`<div class="rsection"><h3>Flux devant l'emplacement <span class="estchip">INDICE ESTIMÉ</span></h3>
+    <div class="cols2b">
+      <div class="cardbox"><h4>Profil de passage — journée type</h4>${hbars([0.30,0.65,0.45,0.35,0.45,0.90,0.80,0.40,0.35,0.42,0.55,0.92,1.00,0.72,0.45])}
+        <p class="note">Profil horaire type (double pic midi/soir).</p></div>
+      <div><div class="tiles" style="grid-template-columns:1fr 1fr">
+        <div class="tile"><div class="k">🚶 Indice de passage</div><div class="v">${fmt(fluxP)}</div><div class="u">passages/j estimés (densité)</div></div>
+        <div class="tile"><div class="k">Heure de pointe</div><div class="v">18–19 h</div><div class="u">profil type</div></div>
+      </div>
+      <p class="note">Indice calculé depuis la densité de population de la zone. <b>Flux réels mesurés</b> (données de mobilité) : bientôt, en option.</p></div>
+    </div></div>`;
+
+  const brand=e=>{if(!s.hasGym)return null;const k=Object.keys(GYM_BRANDS).find(b=>e.toLowerCase().includes(b));return k?GYM_BRANDS[k]:null;};
+  etude+=`<div class="rsection"><h3>Concurrence réelle — identifiée par code APE</h3>
+    <div class="tiles" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+      <div class="tile"><div class="k">Concurrents actifs (${s.apeLabel.replace('APE ','')})</div><div class="v">${D.concOk?comps.length:'—'}</div><div class="u">dans la zone</div></div>
+      <div class="tile"><div class="k">Densité</div><div class="v">${D.concOk&&comps.length?fmt(D.pop/comps.length):'—'}</div><div class="u">hab. / concurrent</div></div>
+      <div class="tile"><div class="k">CA moyen publié</div><div class="v">${pubCa.length?money(pubCa.reduce((a,c)=>a+c.ca,0)/pubCa.length):'n.p.'}</div><div class="u">dernier exercice</div></div>
+      <div class="tile"><div class="k">Plus proche</div><div class="v">${comps.length?dec(comps[0].dist,1)+' km':'—'}</div><div class="u">de votre adresse</div></div>
+    </div>
+    <div class="cardbox">
+      <div style="margin-bottom:12px"><span class="apechip">${s.apeLabel}</span></div>
+      <div class="comp-scroll"><table class="comp">
+        <thead><tr><th>Enseigne / société</th><th>Adresse</th>${s.hasGym?'<th>Positionnement</th>':''}<th>Créée</th><th>Distance</th><th>CA (dernier ex.)</th><th>Résultat net</th><th>Source</th><th></th></tr></thead>
+        <tbody>${comps.map((c,ci)=>{const b=brand(nomComp(c));
+          const srcLab=c.src==='both'?['Terrain + SIRENE','ok']:(c.src==='osm'?['Terrain','osm']:['SIRENE','sir']);
+          const nm=nomComp(c);
+          return `<tr><td class="cname">📍 ${nm} <button class="renc" type="button" data-i="${ci}" title="Corriger le nom commercial (enseigne)">✎</button>${c.soc&&c.soc!==nm?`<span class="soc">Société : ${c.soc}</span>`:''}</td>
+          <td>${c.adr||'<span class="na">adresse non publiée</span>'}</td>${s.hasGym?`<td style="text-align:right">${b?b[0]+' · '+b[1]:'—'}</td>`:''}
+          <td>${c.created}</td><td>${dec(c.dist,1)} km</td>
+          <td class="${c.ca?'':'na'}">${c.ca?money(c.ca):'—'}</td>
+          <td class="${c.rn==null?'na':c.rn>=0?'pos':'neg'}">${c.rn==null?'—':(c.rn>=0?'+':'−')+fmt(Math.abs(c.rn))+' €'}${c.anF?` <span class="na">(${c.anF})</span>`:''}</td>
+          <td><span class="srcchip ${srcLab[1]}">${srcLab[0]}</span></td>
+          <td><button class="delc" type="button" data-i="${ci}" title="Retirer ce concurrent de l'étude">✕</button></td></tr>`;}).join('')
+          ||`<tr><td colspan="9" class="na">${D.concOk?'Aucun concurrent de ce secteur détecté — signal potentiellement très favorable (à vérifier sur le terrain).':'Concurrents non chargés (API injoignable ici — fonctionne en ligne).'}</td></tr>`}</tbody>
+      </table></div>
+      ${nExcl?`<div class="excl-bar">${nExcl} concurrent${nExcl>1?'s':''} retiré${nExcl>1?'s':''} de l'étude — tous les calculs ont été mis à jour. <button onclick="restoreComps()">Tout réintégrer</button></div>`:
+        `<p class="note" style="margin-top:10px">✕ Un concurrent ne vous concerne pas ? Retirez-le : le marché captable, le CA potentiel et le business plan sont recalculés instantanément. ✎ Un nom vous paraît étrange (SC SPORT, AD SERVICE…) ? C'est la raison sociale du gérant, la seule que publie SIRENE quand l'enseigne n'a pas été déclarée : cliquez sur le crayon pour rétablir le nom commercial.</p>`}
+      <p class="note">Méthode : recherche <b>terrain</b> des établissements réellement implantés (OpenStreetMap), puis croisement avec la base <b>SIRENE</b> sur le code APE de l'établissement pour ne garder que les entreprises <b>actives</b> et récupérer leurs chiffres officiels. « Terrain » = présent sur place mais sans comptes rattachés ; « SIRENE » = enregistré au bon code APE sans fiche terrain.${D.compStats?` (${D.compStats.terrain} fiches terrain · ${D.compStats.sirene} établissements SIRENE)`:''} CA / résultat net : comptes publiés au niveau société ; « — » = non publié, fréquent pour les petites structures.</p>
+    </div></div>`;
+
+  etude+=bizSection(D);
+
+  etude+=`<div class="rsection"><h3>Marché & potentiel</h3>
+    <div class="cols2b">
+      <div class="cardbox"><h4>Estimation du potentiel</h4>
+        <table class="mini">
+          <tr><td>Dépense sectorielle moyenne — France</td><td>${fmt(depHabFr)} € / hab / an</td></tr>
+          <tr><td>Ajustement au revenu de la zone</td><td class="${coefRev>1.02?'pos':(coefRev<0.98?'neg':'')}">${revZ?(coefRev>=1?'+':'−')+Math.abs(Math.round((coefRev-1)*100))+' % (× '+dec(coefRev,2)+')':'non ajusté'}</td></tr>
+          <tr><td><b>Dépense retenue dans la zone</b></td><td><b>${fmt(depHab)} € / hab / an</b></td></tr>
+          <tr><td>Marché total de la zone</td><td>${money(marche)} / an</td></tr>
+          <tr><td>Concurrents actifs</td><td>${n}</td></tr>
+          <tr><td>Part de marché captable</td><td>${pct(part)}</td></tr>
+          <tr><td>Plafond capacité (${fmt(state.surface)} m²${s.hasGym?' · '+POS[state.pos].lab:''})</td><td>${money(capCA)} / an</td></tr>
+          <tr><td><b>CA potentiel retenu</b></td><td><b>${money(caPot)} / an</b></td></tr>
+        </table>
+        <p class="note">${revZ?`La dépense nationale du secteur est <b>pondérée par le revenu médian de la zone</b> (${fmt(revZ)} € contre ${fmt(FRANCE.revenu)} € en France), avec une élasticité de ${dec(elast,2)} propre à ce métier : ${elast<=0.4?'un poste de première nécessité, peu sensible au niveau de vie.':(elast>=1.1?'un achat plaisir, très sensible au niveau de vie.':'un poste moyennement sensible au niveau de vie.')} Coefficient volontairement borné entre 0,60 et 1,60.`:'Revenu médian non publié pour cette zone : la dépense nationale est utilisée telle quelle.'} Chaque autre valeur est recalculée depuis votre zone réelle.</p>
+      </div>
+      <div>
+        <div class="tile good" style="margin-bottom:13px"><div class="k">Chiffre d'affaires potentiel</div><div class="v">${money(caPot)}</div><div class="u">par an, au régime de croisière</div></div>
+        <div class="tile"><div class="k">Marché total de la zone</div><div class="v">${money(marche)}</div><div class="u">dépense annuelle du secteur</div></div>
+      </div>
+    </div></div>`;
+
+  etude+=`<div class="rsection"><h3>Analyse SWOT</h3><div class="swot">
+    <div class="swot-card sw-f"><h5>💪 Forces</h5><ul>
+      <li>Zone réelle de ${fmt(D.pop)} habitants en ${state.time} min ${modeLab}</li>
+      <li>${D.communes.length||'Plusieurs'} commune(s) couvertes — bassin réel de clientèle</li></ul></div>
+    <div class="swot-card sw-w"><h5>⚠️ Faiblesses</h5><ul>
+      <li>Investissement à financer : ${money(inv)} (crédit ${fmt(credit)} €/mois)</li>
+      <li>Notoriété à construire face aux acteurs installés</li></ul></div>
+    <div class="swot-card sw-o"><h5>🚀 Opportunités</h5><ul>
+      <li>Marché local de ${money(marche)}/an · secteur ${m.croissance}</li>
+      <li>Part captable estimée : ${pct(part)}</li></ul></div>
+    <div class="swot-card sw-t"><h5>🛡️ Menaces</h5><ul>
+      <li>${n} concurrent(s) actif(s)${comps.length?` — le plus proche à ${dec(comps[0].dist,1)} km`:''}</li>
+      <li>Sensibilité du CA à l'emplacement exact et à la visibilité</li></ul></div>
+  </div></div>`;
+
+  /* ---- NIVEAU 3 : BP ---- */
+  let bp='';
+  bp+=`<div class="rsection"><h3>Business plan prévisionnel — 18 mois</h3>
+    <div class="tiles">
+      <div class="tile"><div class="k">Investissement (échelle ${fmt(state.surface)} m²)</div><div class="v">${money(inv)}</div><div class="u">financé par crédit 7 ans à 3,9 %</div></div>
+      <div class="tile"><div class="k">Mensualité crédit</div><div class="v">${fmt(credit)} €</div><div class="u">capital + intérêts</div></div>
+      <div class="tile ${ebeCruise>=0?'good':'warn'}"><div class="k">EBE mensuel (croisière)</div><div class="v">${(ebeCruise>=0?'+':'−')+fmt(Math.abs(ebeCruise))} €</div><div class="u">marge ${pct(ebeCruise>0?ebeCruise/(caPot/12):0)}</div></div>
+      <div class="tile ${be?'good':'warn'}"><div class="k">EBE positif dès</div><div class="v">${be?'M'+be:'> M18'}</div><div class="u">mois après ouverture</div></div>
+    </div>
+    <div class="cols2b" style="margin-top:14px">
+      <div class="cardbox"><h4>Trésorerie cumulée sur 18 mois</h4>${lineSVG(months)}
+        <p class="note">Point bas : ${money(Math.min(...months))} — c'est le besoin de financement du démarrage (hors investissement, financé par le crédit).</p></div>
+      <div class="cardbox"><h4>Hypothèses clés</h4>
+        <table class="mini">
+          <tr><td>CA potentiel annuel</td><td>${money(caPot)}</td></tr>
+          <tr><td>Marge d'exploitation secteur</td><td>${pct(s.margeExploit)}</td></tr>
+          <tr><td>Montée en charge</td><td>12 mois (12 % à l'ouverture)</td></tr>
+          <tr><td>Ouverture prévue</td><td>${document.getElementById('opendate').value||'—'}</td></tr>
+        </table>
+        <p class="note">📊 Export Excel détaillé mois par mois : bientôt. Utilisez 🖨️ PDF pour sauvegarder ce rapport.</p>
+      </div>
+    </div></div>`;
+
+  html+=lockWrap(etude,2,level,'Niveau 2 · Étude complète','39 €',
+    'Marché national du secteur, flux, concurrence réelle chiffrée (CA, résultat net) & potentiel de CA.');
+  html+=lockWrap(bp,3,level,'Niveau 3 · Business Plan','79 €',
+    'Prévisionnel 18 mois : EBE, crédit, trésorerie, point mort — prêt pour votre banque.');
+  html+=`<div class="betabox">🎁 <b>Bêta gratuite</b> — tous les niveaux sont offerts pendant la phase de test. Vos retours nous aident : dites-nous ce qui manque !</div>`;
+
+  document.getElementById('r-content').innerHTML=html;
+
+  /* carte Leaflet */
+  if(typeof L!=='undefined'){
+    if(map){try{map.remove();}catch(e){}map=null;}
+    map=L.map('lmap');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+    let pl=null;
+    D.zones.forEach(z=>{const col=z.mode==='car'?'#2E6EB5':'#1E7A46';
+      const p=L.polygon(z.poly,{color:col,weight:2.5,dashArray:'7 5',fillColor:col,fillOpacity:.10}).addTo(map)
+        .bindPopup(z.mode==='car'?'🚗 Zone en voiture':'🚶 Zone à pied');
+      if(z.poly===D.poly)pl=p;});
+    drawHors(map,D);
+    L.circleMarker([state.addr.lat,state.addr.lon],{radius:9,color:'#1F3A5F',fillColor:'#1F3A5F',fillOpacity:1}).addTo(map).bindPopup('<b>Votre emplacement</b>');
+    if(level>=2)comps.forEach(c=>L.circleMarker([c.lat,c.lon],{radius:6,color:'#B23A3A',fillColor:'#B23A3A',fillOpacity:.85}).addTo(map).bindPopup(`<b>${nomComp(c)}</b><br>${c.adr}<br>${dec(c.dist,1)} km`));
+    map.fitBounds(pl.getBounds(),{padding:[16,16]});
+    drawBizMap(D);
+  }else{
+    const el=document.getElementById('lmap');
+    if(el)el.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#67788a;font-size:13.5px;text-align:center;padding:20px">🗺️ Carte indisponible hors ligne — elle s\'affiche une fois le site en ligne.</div>';
+  }
+}
+/* ================= PAIEMENT STRIPE ================= */
+/* PAYMENTS_LIVE=false : le site reste en bêta gratuite pour les visiteurs.
+   Le mode paiement se teste en ajoutant ?pay=1 à l'URL.
+   Passer PAYMENTS_LIVE à true pour activer le paiement pour tout le monde. */
+const PAYMENTS_LIVE=false;
+const PAY=PAYMENTS_LIVE||new URLSearchParams(location.search).has('pay');
+const PRICES={1:'19 €',2:'39 €',3:'79 €'};
+
+async function payFor(level){
+  if(!state.addr){setStatus('⚠️ Choisissez d\'abord une adresse dans la liste.');
+    document.getElementById('address').focus();return;}
+  try{localStorage.setItem('ss_cfg',JSON.stringify({business:state.business,time:state.time,
+    modes:state.modes,pos:state.pos,surface:state.surface,addr:state.addr,
+    opendate:document.getElementById('opendate').value,level}));}catch(e){}
+  setStatus('Redirection vers le paiement sécurisé…');
+  try{
+    const r=await fetch('/api/checkout',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({level})});
+    const d=await r.json();
+    if(d.url)location.href=d.url;
+    else setStatus('⚠️ '+(d.error||'Paiement indisponible pour le moment.'));
+  }catch(e){setStatus('⚠️ Paiement indisponible pour le moment.');}
+}
+
+async function resumeAfterPayment(){
+  const qp=new URLSearchParams(location.search);
+  const cleanURL=location.pathname+(PAY&&!PAYMENTS_LIVE?'?pay=1':'');
+  if(qp.has('cancel')){setStatus('Paiement annulé — rien n\'a été débité.');
+    history.replaceState(null,'',cleanURL);return;}
+  const sid=qp.get('paid');if(!sid)return;
+  setStatus('Vérification du paiement…');
+  try{
+    const r=await fetch('/api/verify?session_id='+encodeURIComponent(sid));
+    const d=await r.json();
+    history.replaceState(null,'',cleanURL);
+    if(!d.paid){setStatus('⚠️ Paiement non confirmé — si vous avez été débité, contactez-nous.');return;}
+    state.entitled=Math.max(state.entitled||0,d.level);
+    let cfg=null;try{cfg=JSON.parse(localStorage.getItem('ss_cfg'));}catch(e){}
+    if(!cfg||!cfg.addr){setStatus('✔ Paiement confirmé (niveau '+d.level+' débloqué) — resaisissez votre adresse puis générez votre rapport.');return;}
+    sel.value=cfg.business;onBusinessChange();
+    const modes=cfg.modes||(cfg.mode?[cfg.mode]:['car']);
+    state.time=cfg.time;state.modes=modes;state.pos=cfg.pos;
+    state.surface=cfg.surface;state.addr=cfg.addr;
+    document.querySelectorAll('#seg-time button').forEach(b=>b.classList.toggle('on',Number(b.dataset.t)===cfg.time));
+    document.querySelectorAll('#seg-mode button[data-m]').forEach(b=>b.classList.toggle('on',modes.includes(b.dataset.m)));
+    document.querySelectorAll('#seg-pos button').forEach(b=>b.classList.toggle('on',b.dataset.p===cfg.pos));
+    if(cfg.surface)document.getElementById('surface').value=cfg.surface;
+    if(cfg.opendate)document.getElementById('opendate').value=cfg.opendate;
+    addrInput.value=cfg.addr.label;
+    setStatus('✔ Paiement confirmé — génération de votre rapport…');
+    generate(d.level);
+  }catch(e){setStatus('⚠️ Vérification du paiement impossible — rechargez la page.');}
+}
+
+if(PAY){
+  const cards=document.querySelector('.levels');
+  if(cards)cards.querySelectorAll('.lvl').forEach((c,i)=>{
+    const rb=c.querySelector('.ribbon');if(rb&&/bêta/i.test(rb.textContent))rb.remove();
+    const pr=c.querySelector('.price');if(pr)pr.innerHTML=PRICES[i+1]+'<span> / rapport</span>';
+  });
+}
+resumeAfterPayment();
+</script>
+<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</body>
+</html>
