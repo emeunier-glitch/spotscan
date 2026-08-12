@@ -9,6 +9,12 @@
 const GEO = 'https://geo.api.gouv.fr';
 const DEP_CACHE = new Map(); // réutilisé tant que la fonction reste "chaude"
 
+/* --- Suisse : limites communales swisstopo + repère de revenu cantonal --- */
+const CH_LAYER = 'ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill';
+// Revenu brut médian par contribuable (source : administrations fiscales cantonales)
+const CH_REVENU = { GE: { v: 62226, an: 2022, lib: 'canton de Genève' } };
+const pick = (o, re) => { for (const k of Object.keys(o || {})) if (re.test(k)) return o[k]; return null; };
+
 async function jget(url, ms = 20000) {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
@@ -50,6 +56,68 @@ function bboxOf(polys) {
   return [x0, y0, x1, y1];
 }
 
+/* Surface approximative d'un anneau lon/lat, en km² */
+function ringKm2(ring) {
+  let a = 0; const R = 6371;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0] * Math.PI / 180, yi = ring[i][1] * Math.PI / 180;
+    const xj = ring[j][0] * Math.PI / 180, yj = ring[j][1] * Math.PI / 180;
+    a += (xj - xi) * (2 + Math.sin(yi) + Math.sin(yj));
+  }
+  return Math.abs(a * R * R / 2);
+}
+
+/* Communes suisses touchées par la partie de la zone située hors de France */
+async function suisse(ptsHors, cellKm2, bbox) {
+  if (!ptsHors.length) return null;
+  const [lo0, la0, lo1, la1] = bbox;
+  const url = 'https://api3.geo.admin.ch/rest/services/api/MapServer/identify'
+    + `?geometry=${lo0},${la0},${lo1},${la1}&geometryType=esriGeometryEnvelope`
+    + `&layers=all:${CH_LAYER}&mapExtent=${lo0},${la0},${lo1},${la1}`
+    + '&imageDisplay=500,500,96&tolerance=0&sr=4326&returnGeometry=true&limit=50';
+  const d = await jget(url, 12000);
+  const feats = [];
+  for (const f of (d.results || d.features || [])) {
+    const a = f.attributes || f.properties || {};
+    const g = f.geometry || {};
+    const rings = g.rings || (g.coordinates && (g.type === 'MultiPolygon' ? g.coordinates.flat() : g.coordinates));
+    if (!rings || !rings.length) continue;
+    feats.push({
+      nom: pick(a, /^(gemname|name|gem_name|label)$/i) || 'Commune suisse',
+      bfs: pick(a, /bfs/i),
+      canton: String(pick(a, /^(kanton|ak|kt)$/i) || '').toUpperCase(),
+      pop: Number(pick(a, /einwohner|bevoelker|population/i)) || null,
+      polys: rings.map(r => [r.map(p => [Number(p[0]), Number(p[1])])]),
+      km2: ringKm2(rings[0])
+    });
+  }
+  if (!feats.length) return null;
+
+  const hits = new Map();
+  for (const pt of ptsHors) {
+    for (const f of feats) {
+      if (polyContains(pt, f.polys)) {
+        const h = hits.get(f.nom) || { f, n: 0 };
+        h.n++; hits.set(f.nom, h); break;
+      }
+    }
+  }
+  if (!hits.size) return null;
+
+  const communes = [...hits.values()].map(h => {
+    const share = h.f.km2 > 0 ? Math.min(1, (h.n * cellKm2) / h.f.km2) : null;
+    return {
+      nom: h.f.nom, canton: h.f.canton,
+      part: share, popIn: (h.f.pop && share) ? Math.round(h.f.pop * share) : null
+    };
+  }).sort((a, b) => (b.popIn || 0) - (a.popIn || 0));
+
+  const pop = communes.reduce((s, c) => s + (c.popIn || 0), 0);
+  const canton = (communes.find(c => c.canton) || {}).canton || '';
+  const rev = CH_REVENU[canton] || null;
+  return { communes, pop: pop || null, canton, revenu: rev };
+}
+
 async function loadDep(dep) {
   if (DEP_CACHE.has(dep)) return DEP_CACHE.get(dep);
   const raw = await jget(`${GEO}/departements/${dep}/communes?fields=nom,code,population,surface,contour&format=json`, 25000);
@@ -82,16 +150,17 @@ export default async function handler(req, res) {
   let la0 = 90, la1 = -90, lo0 = 180, lo1 = -180;
   for (const p of iso) { if (p[1] < la0) la0 = p[1]; if (p[1] > la1) la1 = p[1]; if (p[0] < lo0) lo0 = p[0]; if (p[0] > lo1) lo1 = p[0]; }
 
-  // Grille dense sur la zone
+  // Grille dense sur la zone (on garde les indices pour reconstituer la géométrie hors France)
   const G = 56, grid = [];
+  const dLa = (la1 - la0) / G, dLo = (lo1 - lo0) / G;
   for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) {
-    const pt = [lo0 + (j + .5) / G * (lo1 - lo0), la0 + (i + .5) / G * (la1 - la0)];
-    if (ringContains(pt, iso)) grid.push(pt);
+    const pt = [lo0 + (j + .5) * dLo, la0 + (i + .5) * dLa];
+    if (ringContains(pt, iso)) grid.push({ p: pt, i, j });
   }
   if (!grid.length) { res.status(200).json({ communes: [], pop: 0, horsFrance: 0, points: 0 }); return; }
 
   // Départements traversés (sondages ; les points hors France ne renvoient rien)
-  const probes = [0, .2, .4, .6, .8, 1].map(f => grid[Math.min(grid.length - 1, Math.round(f * (grid.length - 1)))]);
+  const probes = [0, .2, .4, .6, .8, 1].map(f => grid[Math.min(grid.length - 1, Math.round(f * (grid.length - 1)))].p);
   const deps = new Set();
   await Promise.all(probes.map(async pt => {
     try {
@@ -110,17 +179,44 @@ export default async function handler(req, res) {
 
   // Affectation exacte de chaque point de la grille
   const hits = new Map();
+  const horsCells = new Map();   // ligne i -> colonnes j situées hors de France
+  const ptsHors = [];
   let dedans = 0, dehors = 0;
-  for (const pt of grid) {
+  for (const g of grid) {
+    const pt = g.p;
     let found = null;
     for (const c of ref) {
       if (pt[0] < c.bbox[0] || pt[0] > c.bbox[2] || pt[1] < c.bbox[1] || pt[1] > c.bbox[3]) continue;
       if (polyContains(pt, c.polys)) { found = c; break; }
     }
-    if (!found) { dehors++; continue; }
+    if (!found) {
+      dehors++;
+      ptsHors.push(pt);
+      if (!horsCells.has(g.i)) horsCells.set(g.i, []);
+      horsCells.get(g.i).push(g.j);
+      continue;
+    }
     dedans++;
     const h = hits.get(found.code) || { c: found, n: 0 };
     h.n++; hits.set(found.code, h);
+  }
+
+  // Géométrie de la partie hors France : cellules fusionnées en rectangles par ligne
+  const horsRects = [];
+  for (const [i, cols] of horsCells) {
+    cols.sort((a, b2) => a - b2);
+    let start = cols[0], prev = cols[0];
+    for (let k = 1; k <= cols.length; k++) {
+      const j = cols[k];
+      if (j !== prev + 1) {
+        horsRects.push([
+          [+(la0 + i * dLa).toFixed(5), +(lo0 + start * dLo).toFixed(5)],
+          [+(la0 + (i + 1) * dLa).toFixed(5), +(lo0 + (prev + 1) * dLo).toFixed(5)]
+        ]);
+        start = j;
+      }
+      prev = j;
+    }
   }
 
   const total = dedans + dehors;
@@ -130,11 +226,21 @@ export default async function handler(req, res) {
     return { nom: h.c.nom, code: h.c.code, share, popIn: Math.round(h.c.pop * share) };
   }).filter(c => c.popIn > 0).sort((a, b2) => b2.popIn - a.popIn);
 
+  // Partie étrangère : identification des communes suisses (n'interrompt jamais le reste)
+  let ch = null;
+  if (dehors / Math.max(1, total) > 0.02) {
+    let x0 = 180, y0 = 90, x1 = -180, y1 = -90;
+    for (const p of ptsHors) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
+    try { ch = await suisse(ptsHors, cellKm2, [x0, y0, x1, y1]); } catch (e) { ch = null; }
+  }
+
   res.status(200).json({
     communes,
     pop: communes.reduce((a, c) => a + c.popIn, 0),
+    suisse: ch,
     horsFrance: total ? dehors / total : 0,
     surfaceFrKm2: areaKm2 * (dedans / Math.max(1, total)),
+    horsRects,
     points: total
   });
 }
