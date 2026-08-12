@@ -15,6 +15,53 @@ const CH_LAYER = 'ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill';
 const CH_REVENU = { GE: { v: 62226, an: 2022, lib: 'canton de Genève' } };
 const pick = (o, re) => { for (const k of Object.keys(o || {})) if (re.test(k)) return o[k]; return null; };
 
+// La couche swisstopo ne porte pas toujours le nombre d'habitants : on va le chercher sur
+// OpenStreetMap, où les communes suisses (relations admin_level=8) sont renseignées par l'OFS.
+const OVERPASS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
+];
+const UA = 'SpotScan/1.0 (etude-implantation; +https://www.spotscan.fr)';
+const normNom = s => String(s || '').toLowerCase().normalize('NFD')
+  .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+
+async function chPopulations(bbox) {
+  const [lo0, la0, lo1, la1] = bbox;
+  const q = `[out:json][timeout:20];`
+    + `rel["boundary"="administrative"]["admin_level"="8"]["population"]`
+    + `(${la0.toFixed(4)},${lo0.toFixed(4)},${la1.toFixed(4)},${lo1.toFixed(4)});out tags center;`;
+  let data = null;
+  for (const ep of OVERPASS) {
+    try {
+      const c = new AbortController(); const t = setTimeout(() => c.abort(), 12000);
+      try {
+        const r = await fetch(ep, {
+          method: 'POST', signal: c.signal,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', accept: 'application/json', 'User-Agent': UA },
+          body: 'data=' + encodeURIComponent(q)
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        data = await r.json();
+      } finally { clearTimeout(t); }
+      break;
+    } catch (e) { /* mirroir suivant */ }
+  }
+  if (!data) return { byBfs: new Map(), byNom: new Map() };
+  const byBfs = new Map(), byNom = new Map();
+  for (const el of (data.elements || [])) {
+    const t = el.tags || {};
+    const pop = Number(String(t.population || '').replace(/[^0-9]/g, ''));
+    if (!pop) continue;
+    const an = Number(String(t['population:date'] || '').slice(0, 4)) || null;
+    const rec = { pop, an };
+    const bfs = t['swisstopo:BFS_NUMMER'] || t['ref:BFS'] || t['ref:bfs'] || t.ref;
+    if (bfs) byBfs.set(String(bfs).trim(), rec);
+    if (t.name) byNom.set(normNom(t.name), rec);
+  }
+  return { byBfs, byNom };
+}
+
 async function jget(url, ms = 20000) {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
@@ -104,10 +151,22 @@ async function suisse(ptsHors, cellKm2, bbox) {
   }
   if (!hits.size) return null;
 
+  // Complément de population : swisstopo ne renvoie pas toujours l'attribut habitants
+  let popAn = null;
+  if ([...hits.values()].some(h => !h.f.pop)) {
+    let src = null;
+    try { src = await chPopulations(bbox); } catch (e) { src = null; }
+    if (src) for (const h of hits.values()) {
+      if (h.f.pop) continue;
+      const r = (h.f.bfs && src.byBfs.get(String(h.f.bfs).trim())) || src.byNom.get(normNom(h.f.nom));
+      if (r) { h.f.pop = r.pop; if (r.an && (!popAn || r.an > popAn)) popAn = r.an; }
+    }
+  }
+
   const communes = [...hits.values()].map(h => {
     const share = h.f.km2 > 0 ? Math.min(1, (h.n * cellKm2) / h.f.km2) : null;
     return {
-      nom: h.f.nom, canton: h.f.canton,
+      nom: h.f.nom, canton: h.f.canton, pop: h.f.pop || null,
       part: share, popIn: (h.f.pop && share) ? Math.round(h.f.pop * share) : null
     };
   }).sort((a, b) => (b.popIn || 0) - (a.popIn || 0));
@@ -115,7 +174,8 @@ async function suisse(ptsHors, cellKm2, bbox) {
   const pop = communes.reduce((s, c) => s + (c.popIn || 0), 0);
   const canton = (communes.find(c => c.canton) || {}).canton || '';
   const rev = CH_REVENU[canton] || null;
-  return { communes, pop: pop || null, canton, revenu: rev };
+  const sansPop = communes.filter(c => !c.popIn).length;
+  return { communes, pop: pop || null, popAn, canton, revenu: rev, sansPop };
 }
 
 async function loadDep(dep) {
