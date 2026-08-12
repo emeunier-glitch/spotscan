@@ -4,6 +4,7 @@
     "api/competitors.js": { "maxDuration": 50 },
     "api/businesses.js": { "maxDuration": 50 },
     "api/insee.js": { "maxDuration": 25 },
-    "api/zone.js": { "maxDuration": 50 }
+    "api/zone.js": { "maxDuration": 50 },
+    "api/iso.js": { "maxDuration": 25 }
   }
 }
