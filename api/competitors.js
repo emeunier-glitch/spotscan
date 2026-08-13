@@ -39,6 +39,26 @@ function nameClose(a, b) {
   for (const w of A) if (B.has(w)) inter++;
   return inter / Math.min(A.size, B.size) >= 0.5;
 }
+/* Rapprochement par adresse postale : le point OpenStreetMap et l'établissement SIRENE
+   sont souvent distants de 100 à 300 m (bâtiment vs point d'adresse), mais portent le
+   même numéro et la même rue. C'est le critère le plus fiable pour dire "même commerce". */
+const VOIE = new Set(['rue', 'avenue', 'chemin', 'route', 'boulevard', 'impasse', 'allee', 'place',
+  'quai', 'cours', 'square', 'passage', 'lotissement', 'residence', 'zone', 'parc', 'centre',
+  'commercial', 'bis', 'ter', 'cedex']);
+function numVoie(s) { const m = norm(s).match(/(^|\s)(\d{1,4})(\s|$)/); return m ? m[2] : null; }
+function motsVoie(s) {
+  return new Set(norm(s).replace(/\d+/g, ' ').split(' ').filter(w => w.length > 3 && !VOIE.has(w)));
+}
+function memeAdresse(a, b) {
+  if (!a || !b) return false;
+  const na = numVoie(a), nb = numVoie(b);
+  if (!na || !nb || na !== nb) return false;
+  const A = motsVoie(a), B = motsVoie(b);
+  if (!A.size || !B.size) return false;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  return inter / Math.min(A.size, B.size) >= 0.5;
+}
 function haversine(a, b) {
   const R = 6371, dLa = (b[0] - a[0]) * Math.PI / 180, dLo = (b[1] - a[1]) * Math.PI / 180;
   const x = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180) * Math.sin(dLo / 2) ** 2;
@@ -165,7 +185,12 @@ export default async function handler(req, res) {
   const nafWide = (Array.isArray(b.nafWide) ? b.nafWide.filter(Boolean) : []).filter(c => !naf.includes(c));
   const kw = (Array.isArray(b.kw) ? b.kw : []).map(k => norm(k)).filter(Boolean);
   if (!isFinite(lat) || !isFinite(lon)) { res.status(400).json({ error: 'Coordonnées manquantes' }); return; }
-  const kwHit = n => { const s = norm(n); return kw.some(k => s.includes(k)); };
+  // Un mot-clé compte s'il apparaît en début de mot ("optic" → "opticien", mais pas au milieu
+  // d'un mot sans rapport). Sans mot-clé configuré, aucun résultat élargi n'est validé par le nom.
+  const kwRe = kw.length
+    ? new RegExp('(^| )(' + kw.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')')
+    : null;
+  const kwHit = n => !!kwRe && kwRe.test(norm(n));
 
   const warnings = [];
   const [osmRes, sirStrict, sirWide] = await Promise.all([
@@ -190,15 +215,20 @@ export default async function handler(req, res) {
     sirRes.forEach((s, i) => {
       if (used.has(i)) return;
       const d = haversine([p.lat, p.lon], [s.lat, s.lon]);
-      if (d < 0.15 || (d < 0.5 && nameClose(p.ens, s.ens))) {
+      // même point (<220 m), ou même nom à proximité, ou même adresse postale jusqu'à 1 km
+      if (d < 0.22 || (d < 0.6 && nameClose(p.ens, s.ens)) || (d < 1 && memeAdresse(p.adr, s.adr))) {
         if (d < bestD) { bestD = d; best = i; }
       }
     });
     if (best >= 0) {
       used.add(best);
       const s = sirRes[best];
+      // Le terrain donne l'enseigne commerciale, SIRENE la raison sociale : on garde les deux,
+      // sinon un franchisé apparaît sous le nom de sa société (SC SPORT au lieu de L'Appart Fitness).
+      const ens = p.ens || s.ens;
+      const soc = s.soc || (s.ens && !nameClose(s.ens, ens) ? s.ens : null);
       // corroboré par le terrain : la fiche est validée même si elle vient du filet élargi
-      merged.push({ ...s, ens: p.ens || s.ens, adr: s.adr || p.adr, lat: p.lat, lon: p.lon, src: 'both', wide: false });
+      merged.push({ ...s, ens, soc, adr: s.adr || p.adr, lat: p.lat, lon: p.lon, src: 'both', wide: false });
     } else {
       merged.push(p);
     }
