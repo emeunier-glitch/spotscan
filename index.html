@@ -841,7 +841,6 @@ async function fetchData(){
 async function generate(level){
   if(!state.addr){setStatus('⚠️ Choisissez d\'abord une adresse dans la liste.');
     document.getElementById('address').focus();return;}
-  if(!await proGate()){setStatus('Commande annulée.');return;}
   state.level=level;
   const D=await fetchData();
   if(D.warnings.length)warn(D.warnings.join(' · '));
@@ -1394,6 +1393,7 @@ function proGate(){
 async function payFor(level){
   if(!state.addr){setStatus('⚠️ Choisissez d\'abord une adresse dans la liste.');
     document.getElementById('address').focus();return;}
+  if(!await proGate()){setStatus('Commande annulée.');return;}
   try{localStorage.setItem('ss_cfg',JSON.stringify({business:state.business,time:state.time,
     modes:state.modes,pos:state.pos,surface:state.surface,addr:state.addr,
     opendate:document.getElementById('opendate').value,level}));}catch(e){}
