@@ -207,7 +207,20 @@
   .apercu-lock ul{margin:0 0 0 18px;font-size:13.5px;color:#4a5a6b}
   .apercu-lock li{margin:3px 0}
   .apercu-foot{font-size:12px;color:var(--muted);padding:0 20px 18px}
-  @media(max-width:820px){.apercu-grid{grid-template-columns:1fr}}
+  .apercu-vs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+  .vs-col{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .vs-head{background:var(--light);color:var(--navy);font-weight:800;font-size:15px;padding:11px 14px;
+    border-bottom:1px solid var(--line)}
+  .vs-t{width:100%;border-collapse:collapse;font-size:13.5px}
+  .vs-t td{padding:8px 14px;border-bottom:1px solid #eef2f7;color:#4a5a6b}
+  .vs-t td:last-child{text-align:right;color:var(--ink)}
+  .vs-t tr:last-child td{border-bottom:0}
+  .vs-t .pos{color:var(--green)}.vs-t .neg{color:#B23A3A}
+  .vs-verdict{font-size:13.5px;font-weight:700;padding:11px 14px;text-align:center}
+  .vs-verdict.good{background:#e8f5ee;color:#1E7A46}
+  .vs-verdict.bad{background:#fdecea;color:#B23A3A}
+  .vs-note{font-size:13.5px;color:#4a5a6b;margin-top:14px;line-height:1.55}
+  @media(max-width:820px){.apercu-grid{grid-template-columns:1fr}.apercu-vs{grid-template-columns:1fr}}
   .renc{border:0;background:none;color:#b6c2cf;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
   .renc:hover{color:var(--blue)}
   .renin{width:100%;max-width:230px;font:inherit;font-size:13.5px;padding:4px 7px;
@@ -285,7 +298,7 @@
 <div id="config-view">
   <header>
     <div class="wrap">
-      <div class="logo"><span class="mark">◎</span> SpotScan <span class="beta">BÊTA GRATUITE</span></div>
+      <div class="logo"><span class="mark">◎</span> SpotScan</div>
       <nav>
         <span onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'})">Tarifs</span>
         <span onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">Comment ça marche</span>
@@ -430,59 +443,87 @@
   <section class="block" id="apercu">
     <div class="wrap">
       <h2 class="title">À quoi ressemble une étude</h2>
-      <p class="lead">Un exemple réel, calculé par le moteur sur une adresse existante. Vos chiffres seront ceux de votre adresse.</p>
+      <p class="lead">Une même adresse, deux projets, deux verdicts opposés. Étude réelle générée par le moteur — formule Investisseur.</p>
 
       <div class="apercu">
         <div class="apercu-head">
-          <b>📍 52 rue Castellion, 01100 Oyonnax</b>
-          <span>Boulangerie · zone 10 min en voiture · données INSEE, SIRENE, IGN</span>
+          <b>📍 Place Jean Jaurès, 42000 Saint-Étienne</b>
+          <span>Zone 15 min en voiture · formule Investisseur 79 € · INSEE, SIRENE, IGN</span>
         </div>
         <div class="apercu-body">
           <div class="apercu-grid">
             <div class="apercu-map">
-              <svg viewBox="0 0 400 300" role="img" aria-label="Zone de chalandise isochrone 10 minutes">
+              <svg viewBox="0 0 400 300" role="img" aria-label="Zone de chalandise isochrone 15 minutes">
                 <rect width="400" height="300" fill="#eef3f9"/>
                 <g stroke="#cfdcea" stroke-width="2" fill="none">
                   <path d="M-10 70 L410 52"/><path d="M-10 150 L410 172"/><path d="M-10 232 L410 214"/>
                   <path d="M70 -10 L52 310"/><path d="M168 -10 L182 310"/><path d="M286 -10 L272 310"/>
                 </g>
-                <path d="M118 44 C196 26 292 60 322 112 C352 166 320 232 244 258 C170 284 92 262 62 208 C34 158 52 74 118 44 Z"
+                <path d="M112 40 C198 20 300 56 330 110 C360 168 322 238 240 262 C162 286 84 260 56 204 C28 150 46 70 112 40 Z"
                       fill="rgba(46,110,181,.20)" stroke="#2E6EB5" stroke-width="3"/>
                 <g fill="#4A8BD4" opacity=".85">
                   <circle cx="150" cy="120" r="4"/><circle cx="196" cy="96" r="4"/><circle cx="238" cy="140" r="4"/>
                   <circle cx="120" cy="182" r="4"/><circle cx="262" cy="196" r="4"/><circle cx="176" cy="214" r="4"/>
-                  <circle cx="214" cy="168" r="4"/><circle cx="142" cy="150" r="4"/>
+                  <circle cx="214" cy="168" r="4"/><circle cx="142" cy="150" r="4"/><circle cx="286" cy="120" r="4"/>
+                  <circle cx="104" cy="118" r="4"/><circle cx="230" cy="236" r="4"/><circle cx="164" cy="66" r="4"/>
                 </g>
                 <circle cx="200" cy="150" r="9" fill="#B23A3A"/>
                 <circle cx="200" cy="150" r="16" fill="none" stroke="#B23A3A" stroke-width="2" opacity=".55"/>
-                <text x="16" y="290" font-family="sans-serif" font-size="12" fill="#67788a">Isochrone 10 min · 🔴 emplacement · 🔵 commerces</text>
+                <text x="16" y="290" font-family="sans-serif" font-size="12" fill="#67788a">Isochrone 15 min · 🔴 emplacement · 🔵 commerces</text>
               </svg>
             </div>
             <div class="apercu-kpi">
-              <div class="tile"><div class="k">Population de la zone</div><div class="v">38 764</div>
-                <div class="u">habitants · INSEE</div></div>
-              <div class="tile"><div class="k">Emplois dans la zone</div><div class="v">18 879</div>
+              <div class="tile"><div class="k">Population de la zone</div><div class="v">52 857</div>
+                <div class="u">habitants · 8 communes · 26 km²</div></div>
+              <div class="tile"><div class="k">Emplois dans la zone</div><div class="v">27 182</div>
                 <div class="u">personnes y travaillent</div></div>
-              <div class="tile"><div class="k">Revenu médian</div><div class="v">20 086 €</div>
+              <div class="tile"><div class="k">Revenu médian</div><div class="v">19 367 €</div>
                 <div class="u">par habitant et par an</div>
-                <span class="pill pill-bad">−13 % vs France</span></div>
-              <div class="tile"><div class="k">Marché boulangerie</div><div class="v">5,2 M€</div>
-                <div class="u">par an, pondéré par le revenu local</div></div>
+                <span class="pill pill-bad">−16 % vs France</span></div>
+              <div class="tile"><div class="k">Taux de chômage</div><div class="v">18,3 %</div>
+                <div class="u">France : 11,6 %</div>
+                <span class="pill pill-bad">+6,7 pts</span></div>
             </div>
           </div>
 
+          <div class="apercu-vs">
+            <div class="vs-col">
+              <div class="vs-head">🍽️ Restaurant</div>
+              <table class="vs-t">
+                <tr><td>Concurrents actifs</td><td><b>20</b></td></tr>
+                <tr><td>CA moyen publié</td><td><b>1,5 M€</b></td></tr>
+                <tr><td>Marché de la zone</td><td><b>26,1 M€</b></td></tr>
+                <tr><td>Votre CA potentiel</td><td><b>1,2 M€</b></td></tr>
+                <tr><td>EBE mensuel de croisière</td><td><b class="pos">+7 716 €</b></td></tr>
+              </table>
+              <div class="vs-verdict good">✓ Rentable dès le 6<sup>e</sup> mois</div>
+            </div>
+            <div class="vs-col">
+              <div class="vs-head">🥖 Boulangerie</div>
+              <table class="vs-t">
+                <tr><td>Concurrents actifs</td><td><b>20</b></td></tr>
+                <tr><td>CA moyen publié</td><td><b>658 k€</b></td></tr>
+                <tr><td>Marché de la zone</td><td><b>7,0 M€</b></td></tr>
+                <tr><td>Votre CA potentiel</td><td><b>331 k€</b></td></tr>
+                <tr><td>EBE mensuel de croisière</td><td><b class="neg">−1 307 €</b></td></tr>
+              </table>
+              <div class="vs-verdict bad">✕ Toujours déficitaire à 18 mois</div>
+            </div>
+          </div>
+          <p class="vs-note"><b>Même adresse, même zone, deux réponses opposées.</b> C'est précisément ce qu'aucun tableur ne vous dira :
+          la population ne fait pas la rentabilité, le croisement métier / concurrence / revenus la fait.</p>
+
           <div class="apercu-lock">
-            <h5>🔒 Et dans l'étude complète</h5>
+            <h5>Ce que contient la formule Investisseur</h5>
             <ul>
-              <li>Chaque concurrent du secteur présent dans la zone, avec son <b>chiffre d'affaires et son résultat officiels</b>, sa distance et son ancienneté.</li>
-              <li>La carte de <b>toutes les entreprises</b> du secteur, locomotives commerciales repérées.</li>
-              <li>Le <b>marché captable</b> après déduction de la concurrence, et votre CA potentiel.</li>
-              <li>Un <b>prévisionnel sur 18 mois</b> avec seuil de rentabilité, prêt à présenter à votre banque.</li>
+              <li>Les 20 concurrents un par un, avec leur <b>chiffre d'affaires et leur résultat officiels</b> — ici Brasserie Di Voglia à 1,62 M€ et Au Bureau à 1,30 M€, toutes deux en perte sur 2024.</li>
+              <li>La carte des <b>1 748 établissements</b> de la zone et de ses <b>52 locomotives</b> commerciales.</li>
+              <li>Le <b>prévisionnel 18 mois</b> : investissement, mensualité de crédit, EBE mois par mois, seuil de rentabilité.</li>
             </ul>
           </div>
         </div>
-        <p class="apercu-foot">Chiffres réels issus d'une étude générée sur cette adresse. Population, emplois et revenu : INSEE.
-        Marché : estimation SpotScan à partir de la dépense moyenne du secteur, pondérée par le revenu médian local.</p>
+        <p class="apercu-foot">Étude réellement générée sur cette adresse le 13 août 2026. Population, emplois, revenus et chômage : INSEE.
+        Concurrents et comptes publiés : SIRENE. Isochrone : IGN. CA potentiel et prévisionnel : estimations SpotScan à partir des ratios du secteur.</p>
       </div>
     </div>
   </section>
@@ -1210,7 +1251,6 @@ function renderZone(D){
     <p style="font-size:14px;color:#4a5a6b;max-width:560px;margin:0 auto 14px">Choisissez votre futur business pour obtenir la <b>concurrence réelle</b> (CA, résultats), le <b>potentiel de chiffre d'affaires</b> et le <b>business plan sur 18 mois</b> — offert pendant la bêta.</p>
     <button class="lock-cta" onclick="backHome()">Choisir une activité →</button>
   </div></div>`;
-  html+=`<div class="betabox">🎁 <b>Bêta gratuite</b> — vos retours nous aident : dites-nous ce qui manque !</div>`;
   document.getElementById('r-content').innerHTML=html;
   if(typeof L!=='undefined'){
     if(map){try{map.remove();}catch(e){}map=null;}
@@ -1429,7 +1469,6 @@ function render(level,D){
     'Marché national du secteur, flux, concurrence réelle chiffrée (CA, résultat net) & potentiel de CA.');
   html+=lockWrap(bp,3,level,'Niveau 3 · Business Plan','79 €',
     'Prévisionnel 18 mois : EBE, crédit, trésorerie, point mort — prêt pour votre banque.');
-  html+=`<div class="betabox">🎁 <b>Bêta gratuite</b> — tous les niveaux sont offerts pendant la phase de test. Vos retours nous aident : dites-nous ce qui manque !</div>`;
 
   document.getElementById('r-content').innerHTML=html;
 
