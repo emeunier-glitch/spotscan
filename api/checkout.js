@@ -30,6 +30,9 @@ export default async function handler(req, res) {
   p.append('line_items[0][price_data][product_data][description]', offer.desc);
   p.append('line_items[0][price_data][unit_amount]', String(offer.amount));
   p.append('line_items[0][quantity]', '1');
+  // Codes promo Stripe : réductions et invitations gérées depuis le tableau de bord,
+  // sans redéploiement (un coupon à 100 % rend l'étude gratuite).
+  p.append('allow_promotion_codes', 'true');
   p.append('metadata[level]', String(level));
   // Le compte a "Managed Payments" activé par défaut, qui exige un tax_code produit.
   // On le désactive sur cette session (paiement Stripe standard) :
