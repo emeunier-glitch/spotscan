@@ -195,6 +195,54 @@ async function loadDep(dep) {
   return list;
 }
 
+/* --- Population réelle : carreaux INSEE Filosofi de 200 m ---------------------------
+   La répartition uniforme de la population communale sous-estime lourdement les
+   centres-villes denses et surestime les périphéries. Les carreaux de 200 m donnent
+   la population des ménages là où elle se trouve réellement, avec son revenu.
+   Source : INSEE Filosofi 2021, diffusé par Koumoul (données ouvertes). */
+const CARREAUX = 'https://opendata.koumoul.com/data-fair/api/v1/datasets/filosofi-carreaux-200m/lines';
+const CAR_SELECT = 'lcog_geo,ind,men,ind_snv,_geopoint';
+
+async function carreauxBbox(x0, y0, x1, y1, profondeur = 0) {
+  const url = `${CARREAUX}?bbox=${x0.toFixed(5)},${y0.toFixed(5)},${x1.toFixed(5)},${y1.toFixed(5)}`
+    + `&size=10000&select=${CAR_SELECT}`;
+  const d = await jget(url, 15000);
+  const res = d.results || [];
+  // Emprise trop peuplée pour une seule requête : on la découpe en quatre
+  if (d.total > res.length && profondeur < 1) {
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    const quarts = await Promise.all([
+      carreauxBbox(x0, y0, mx, my, profondeur + 1), carreauxBbox(mx, y0, x1, my, profondeur + 1),
+      carreauxBbox(x0, my, mx, y1, profondeur + 1), carreauxBbox(mx, my, x1, y1, profondeur + 1)
+    ]);
+    return quarts.flat();
+  }
+  return res;
+}
+
+async function population200m(iso, bbox) {
+  const [x0, y0, x1, y1] = bbox;
+  const lignes = await carreauxBbox(x0, y0, x1, y1);
+  let pop = 0, men = 0, snv = 0, dedans = 0;
+  const parCommune = new Map();
+  for (const c of lignes) {
+    const g = String(c._geopoint || '').split(',');
+    const la = Number(g[0]), lo = Number(g[1]);
+    if (!isFinite(la) || !isFinite(lo)) continue;
+    if (!ringContains([lo, la], iso)) continue;      // centre du carreau dans l'isochrone
+    const ind = Number(c.ind) || 0;
+    dedans++; pop += ind; men += Number(c.men) || 0; snv += Number(c.ind_snv) || 0;
+    const code = String(c.lcog_geo || '').trim();
+    if (code) parCommune.set(code, (parCommune.get(code) || 0) + ind);
+  }
+  if (!dedans) return null;
+  return {
+    pop: Math.round(pop), menages: Math.round(men), carreaux: dedans,
+    revenuMoyen: pop > 0 ? Math.round(snv / pop) : null,
+    parCommune
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -286,6 +334,29 @@ export default async function handler(req, res) {
     return { nom: h.c.nom, code: h.c.code, share, popIn: Math.round(h.c.pop * share) };
   }).filter(c => c.popIn > 0).sort((a, b2) => b2.popIn - a.popIn);
 
+  /* Population fine : on remplace la répartition uniforme par les carreaux de 200 m
+     dès qu'ils sont disponibles. Le découpage communal est recalculé en sommant les
+     carreaux de chaque commune, ce qui est exact au carreau près. */
+  let communesFinal = communes, popFinal = communes.reduce((a, c) => a + c.popIn, 0);
+  let methode = 'communes', menages = null, revenuMoyen = null, nbCarreaux = 0;
+  try {
+    const car = await population200m(iso, [lo0, la0, lo1, la1]);
+    if (car && car.pop > 0) {
+      const nomDe = new Map(ref.map(c => [c.code, c.nom]));
+      const liste = [...car.parCommune.entries()]
+        .map(([code, ind]) => ({ nom: nomDe.get(code) || code, code, popIn: Math.round(ind),
+          share: null }))
+        .filter(c => c.popIn > 0).sort((a, b2) => b2.popIn - a.popIn);
+      if (liste.length) {
+        // part de chaque commune dans la zone, reprise du découpage géométrique quand on l'a
+        const shareDe = new Map(communes.map(c => [c.code, c.share]));
+        liste.forEach(c => { c.share = shareDe.has(c.code) ? shareDe.get(c.code) : null; });
+        communesFinal = liste; popFinal = car.pop; methode = 'carreaux200m';
+        menages = car.menages; revenuMoyen = car.revenuMoyen; nbCarreaux = car.carreaux;
+      }
+    }
+  } catch (e) { /* source indisponible : on garde la répartition communale */ }
+
   // Partie étrangère : identification des communes suisses (n'interrompt jamais le reste)
   let ch = null;
   if (dehors / Math.max(1, total) > 0.02) {
@@ -295,8 +366,12 @@ export default async function handler(req, res) {
   }
 
   res.status(200).json({
-    communes,
-    pop: communes.reduce((a, c) => a + c.popIn, 0),
+    communes: communesFinal,
+    pop: popFinal,
+    methode,                 // 'carreaux200m' = population réelle des ménages, sinon estimation communale
+    menages,                 // ménages fiscaux de la zone (carreaux uniquement)
+    revenuMoyen,             // niveau de vie moyen de la zone, pondéré par la population réelle
+    carreaux: nbCarreaux,
     suisse: ch,
     horsFrance: total ? dehors / total : 0,
     surfaceFrKm2: areaKm2 * (dedans / Math.max(1, total)),
