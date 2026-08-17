@@ -809,6 +809,8 @@ async function fetchData(){
       if(!(z.communes&&z.communes.length))return false;
       D.communes=z.communes;D.pop=z.pop;D.horsFrance=z.horsFrance||0;
       D.horsRects=z.horsRects||[];D.suisse=z.suisse||null;
+      D.methode=z.methode||'communes';D.menages=z.menages||null;
+      D.revenuMoyen=z.revenuMoyen||null;D.carreaux=z.carreaux||0;
       if(z.surfaceFrKm2)D.areaFrKm2=z.surfaceFrKm2;
       return true;
     }catch(e){return false;/* on bascule sur la méthode locale plus bas */}
@@ -1135,6 +1137,11 @@ function drawHors(m,D){
 }
 /* Moteur ayant calculé l'isochrone : IGN en France, graphe routier européen en zone frontalière */
 const isoSource=D=>D.crossEngine?('un graphe routier européen (OpenStreetMap'+(D.crossEngine==='ors'?' / OpenRouteService':' / Valhalla')+'), frontière comprise'):"l'IGN";
+/* Méthode de comptage : carreaux INSEE de 200 m quand la source répond, sinon
+   répartition de la population communale sur la surface. */
+const popSource=D=>D.methode==='carreaux200m'
+  ?`habitants · carreaux INSEE 200 m${D.menages?' · '+fmt(D.menages)+' ménages':''}`
+  :'habitants (estimation communale)';
 const horsLegende=D=>(D.horsRects&&D.horsRects.length)
   ?` · <b style="color:#B23A3A">zone rouge = partie hors de France</b>, non comptabilisée`:'';
 
@@ -1221,7 +1228,7 @@ function renderZone(D){
         <p class="note">Zone ${state.time} min ${modeLab} calculée par ${isoSource(D)} · 📍 votre point de départ${D.zones.length>1?' · 🚗 zone voiture (bleu) · 🚶 zone piétonne (vert)':''}${horsLegende(D)}.</p></div>
       <div>
         <div class="tiles" style="grid-template-columns:1fr 1fr">
-          <div class="tile"><div class="k">Population accessible</div><div class="v">${fmt(D.pop)}</div><div class="u">habitants (est.)</div></div>
+          <div class="tile"><div class="k">Population accessible</div><div class="v">${fmt(D.pop)}</div><div class="u">${popSource(D)}</div></div>
           <div class="tile"><div class="k">Ménages</div><div class="v">${fmt(D.pop/2.2)}</div><div class="u">foyers (est.)</div></div>
           <div class="tile"><div class="k">Superficie</div><div class="v">${D.areaKm2.toFixed(0)}<span style="font-size:14px"> km²</span></div><div class="u">zone isochrone</div></div>
           <div class="tile"><div class="k">Densité</div><div class="v">${fmt(D.pop/Math.max(1,D.areaKm2))}</div><div class="u">hab. / km²</div></div>
@@ -1318,7 +1325,7 @@ function render(level,D){
         <p class="note">Zone ${state.time} min ${modeLab} calculée par ${isoSource(D)} · 📍 votre emplacement · 🔴 concurrents réels${D.zones.length>1?' · 🚗 zone voiture (bleu) · 🚶 zone piétonne (vert)':''}${horsLegende(D)}.</p></div>
       <div>
         <div class="tiles" style="grid-template-columns:1fr 1fr">
-          <div class="tile"><div class="k">Population accessible</div><div class="v">${fmt(D.pop)}</div><div class="u">habitants (est.)</div></div>
+          <div class="tile"><div class="k">Population accessible</div><div class="v">${fmt(D.pop)}</div><div class="u">${popSource(D)}</div></div>
           <div class="tile"><div class="k">Ménages</div><div class="v">${fmt(D.pop/2.2)}</div><div class="u">foyers (est.)</div></div>
           <div class="tile"><div class="k">Superficie</div><div class="v">${D.areaKm2.toFixed(0)}<span style="font-size:14px"> km²</span></div><div class="u">zone isochrone</div></div>
           <div class="tile"><div class="k">Concurrents actifs</div><div class="v">${level>=2&&D.concOk?comps.length:'🔒'}</div><div class="u">${level>=2?'dans la zone':'niveau 2'}</div></div>
